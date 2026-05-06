@@ -90,6 +90,13 @@ except Exception:  # pragma: no cover
     psycopg2 = None  # type: ignore[misc]
     PSYCOPG2_AVAILABLE = False
 
+try:
+    import httpx
+    HTTPX_AVAILABLE = True
+except Exception:  # pragma: no cover
+    httpx = None  # type: ignore[misc]
+    HTTPX_AVAILABLE = False
+
 
 # ---------------------------------------------------------------------------
 # Constants & Configuration
@@ -109,3 +116,6 @@ LLM_PLANNER_PROVIDER = os.getenv("LLM_PLANNER_PROVIDER", "openai")
 LLM_PLANNER_MODEL = os.getenv("LLM_PLANNER_MODEL", "gpt-4o")
 LLM_PLANNER_TEMPERATURE = float(os.getenv("LLM_PLANNER_TEMPERATURE", "0.2"))
 LLM_PLANNER_MAX_TOKENS = int(os.getenv("LLM_PLANNER_MAX_TOKENS", "1024"))
+DEFAULT_MCP_ENABLE = os.getenv("MCP_ENABLE", "false").lower() == "true"
+DEFAULT_MCP_SERVERS_JSON = os.getenv("MCP_SERVERS", "[]")
+DEFAULT_MCP_TIMEOUT_SECONDS = int(os.getenv("MCP_TIMEOUT_SECONDS", "30"))

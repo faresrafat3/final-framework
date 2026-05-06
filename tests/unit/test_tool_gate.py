@@ -8,6 +8,9 @@ from aio_framework import (
     ObservabilityLayer,
     ObservabilityConfig,
     make_initial_state,
+    MCPClient,
+    MCPConfig,
+    MCPServerConfig,
 )
 
 
@@ -101,3 +104,37 @@ class TestToolGate:
         result = toolgate._docker_run(toolgate._registry["bash_sandbox"], {"command": "false"})
         assert result["success"] is False
         assert result["exit_code"] == 1
+
+    def test_mcp_discovery_on_init(self):
+        obs = ObservabilityLayer(ObservabilityConfig(log_level="DEBUG", prometheus_port=0))
+        mock_mcp = MagicMock(spec=MCPClient)
+        mock_mcp.discover_and_register.return_value = ["mcp/srv/foo"]
+        tg = ToolGate(ToolGateConfig(), obs, mcp_client=mock_mcp)
+        mock_mcp.discover_and_register.assert_called_once_with(tg)
+        assert "mcp/srv/foo" in tg._registry
+
+    def test_mcp_disabled_leaves_registry_unchanged(self):
+        obs = ObservabilityLayer(ObservabilityConfig(log_level="DEBUG", prometheus_port=0))
+        tg = ToolGate(ToolGateConfig(), obs, mcp_client=None)
+        assert "python_sandbox" in tg._registry
+        assert "bash_sandbox" in tg._registry
+        assert "echo" in tg._registry
+
+    def test_mcp_tool_execution_sets_metadata(self):
+        obs = ObservabilityLayer(ObservabilityConfig(log_level="DEBUG", prometheus_port=0))
+        tg = ToolGate(ToolGateConfig(), obs, mcp_client=None)
+        tg.register_tool("mcp/srv/foo", {"type": "object"}, sandbox=False, handler=lambda: "bar")
+        state = make_initial_state("")
+        state["intent"] = "general"
+        state["plan"] = "mcp/srv/foo"
+        with patch.object(tg, "route", return_value="mcp/srv/foo"):
+            state = tg.execute(state)
+        assert state["execution_result"]["success"] is True
+        assert state.get("mcp_execution_metadata", {}).get("tool") == "mcp/srv/foo"
+
+    def test_mcp_discovery_failure_graceful(self):
+        obs = ObservabilityLayer(ObservabilityConfig(log_level="DEBUG", prometheus_port=0))
+        mock_mcp = MagicMock(spec=MCPClient)
+        mock_mcp.discover_and_register.side_effect = RuntimeError("boom")
+        tg = ToolGate(ToolGateConfig(), obs, mcp_client=mock_mcp)
+        assert "python_sandbox" in tg._registry

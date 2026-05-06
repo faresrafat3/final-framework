@@ -15,7 +15,7 @@
 | 4 | Curiosity | `CuriosityEngine` | `CuriosityConfig` | `curiosity_score`, `novelty_map`, `information_gaps` | `node_curiosity_*` | — | (covered in integration) | ✅ Complete |
 | 5 | Verification | `Verifier` | `VerifierConfig` | `verification_result` | `node_verify_plan` | `route_verification` | `test_verifier.py` | ✅ Complete |
 | 6 | Tool Optimization | `ToolOptimizer` | `ToolOptimizerConfig` | `tool_necessity_score`, `tool_policy_channels`, `tool_prompt_optimization`, `sandbox_result`, `tool_analytics` | `node_gstep_*`, etc. | `route_gstep` | `test_tool_gate.py` | ✅ Complete |
-| 7 | Execution | `ToolGate` | `ToolGateConfig` | `execution_result` | `node_execute_action` | — | `test_tool_gate.py` | ✅ Complete |
+| 7 | Execution | `ToolGate` + `MCPClient` | `ToolGateConfig` + `MCPConfig` | `execution_result`, `mcp_discovered_tools`, `mcp_execution_metadata`, `mcp_errors` | `node_execute_action` | — | `test_tool_gate.py`, `test_mcp_client.py` | ✅ Complete |
 | 8 | Failure Recovery | `FailureRecovery` | `FailureRecoveryConfig` | `failure_state`, `failure_count`, `retry_budget`, `safety_violations` | `node_failure_*` | `route_failure`, `route_shield` | `test_failure_recovery.py` | ✅ Complete |
 | 9 | Self-Evolution | `SelfEvolutionLayer` | `SelfEvolutionConfig` | `self_evolution_report`, `performance_snapshot`, `suggested_config_delta` | `node_self_evolution_analyze` | `route_self_evolution` | `test_self_evolution.py` | ✅ Complete |
 | 10 | Multi-Agent Coordination | `MultiAgentCoordinator` | `MultiAgentConfig` | `coordination_plan`, `agent_outputs`, `consensus_score` | `node_multi_agent_*` | `route_multi_agent` | `test_multi_agent.py` | ✅ Complete |
@@ -46,6 +46,8 @@
 | `tests/failure_injection/test_immune_response.py` | Memory corruption quarantine, rapid failure escalation, auto-heal, threat pattern persistence | 3 |
 | `tests/integration/test_multi_agent_backend.py` | LangGraph backend dispatch, fallback, and graph integration | 4 |
 | `tests/unit/test_governance_dashboard.py` | FastAPI routes, `AuditStore` ingestion, and `SafetyGovernance` integration | 4 |
+| `tests/unit/test_mcp_client.py` | MCP transport mocking, JSON-RPC formatting, discovery, graceful degradation, observability | 5 |
+| `tests/integration/test_mcp_integration.py` | Graph compilation with MCP enabled, tool routing, fallback to local tools | 5 |
 
 ---
 
@@ -59,16 +61,17 @@
 6. ~~Single-file growth~~ ✅ Done — `aio_framework.py` modularized into `aio/` package with `layers/`, `config/`, `graph/` submodules (see `DECISION_LOG.md`).
 7. ~~Multi-agent dispatch is simulated~~ ✅ Done — real LangGraph backend available via `MULTI_AGENT_USE_LANGGRAPH_BACKEND`; simulated backend used as fallback.
 8. **Self-evolution auto-apply is bounded**: Only whitelisted config keys can be modified automatically.
+9. **MCP server sandboxing is the operator's responsibility**: MCP tools run in the MCP server's process; external sandboxing (e.g., Docker, firejail) should be configured by the operator.
 
 ---
 
 ## 4. In-Flight Work
 
-> Priority 4 is complete.
+> Priority 5 is complete.
 
 ---
 
-## 5. Ordered Next Steps (Post-Priority 4)
+## 5. Ordered Next Steps (Post-Priority 5)
 
 1. ~~Modularize `aio_framework.py`~~ ✅ Done — split into `aio/` package with `layers/`, `config/`, `graph/` submodules.
 2. ~~Real embedding integration~~ ✅ Done — integrated behind `ENABLE_REAL_EMBEDDINGS` flag.
@@ -77,6 +80,7 @@
 5. ~~Cognitive immune system learning~~ ✅ Done — `ImmuneLearningEngine` with PostgreSQL storage, rolling baselines, Z-score anomaly detection behind `COGNITIVE_IMMUNE_LEARN_ENABLE` flag.
 6. ~~Multi-agent real dispatch~~ ✅ Done — LangGraph supervisor/hierarchical sub-graph backend integrated behind `MultiAgentCoordinator`; simulated backend remains as fallback.
 7. ~~Governance dashboard~~ ✅ Done — FastAPI/Jinja2 dashboard with `AuditStore`, summary page, session detail, and REST API endpoints.
+8. ~~MCP integration~~ ✅ Done — `MCPClient` with stdio/SSE transports, JSON-RPC 2.0, dynamic tool discovery, ToolGate delegation behind `MCP_ENABLE` flag.
 
 ---
 
@@ -106,6 +110,9 @@ langchain-anthropic: >=0.1.0 (optional)
 - `fastapi>=0.110.0` (optional, behind `GOVERNANCE_DASHBOARD_ENABLE`)
 - `uvicorn>=0.25.0` (optional, behind `GOVERNANCE_DASHBOARD_ENABLE`)
 
+**New dependencies added in Priority 5:**
+- None — `httpx>=0.25.0` already in `requirements.txt`; MCP client uses raw JSON-RPC 2.0 with optional `httpx` for SSE transport.
+
 ---
 
 ## 7. Feature Flags
@@ -129,9 +136,12 @@ langchain-anthropic: >=0.1.0 (optional)
 | `GOVERNANCE_DASHBOARD_ENABLE` | `false` | Enable FastAPI governance dashboard web UI for audit trails and compliance monitoring |
 | `GOVERNANCE_DASHBOARD_HOST` | `0.0.0.0` | Host address for the governance dashboard server |
 | `GOVERNANCE_DASHBOARD_PORT` | `8050` | Port for the governance dashboard server |
+| `MCP_ENABLE` | `false` | Enable MCP client and dynamic tool discovery |
+| `MCP_SERVERS` | `[]` | JSON array of `MCPServerConfig` objects (e.g., `[{"name":"fs","transport":"stdio","command":"npx","args":["-y","@anthropic/mcp-server-filesystem"]}`]) |
+| `MCP_TIMEOUT_SECONDS` | `30` | Default timeout for MCP JSON-RPC requests |
 
 All flags are env-driven and checked at config initialization time.
 
 ---
 
-*Last updated: Post-PR #8 and #9 — Multi-Agent Real Dispatch + Governance Dashboard*
+*Last updated: Post-PR #10 — MCP Integration (Priority 5)*

@@ -15,6 +15,9 @@ from .deps import (
     DEFAULT_SAFETY_MODE,
     DEFAULT_DOCKER_SOCKET,
     DEFAULT_MEMBRIDGE_CONN,
+    DEFAULT_MCP_ENABLE,
+    DEFAULT_MCP_SERVERS_JSON,
+    DEFAULT_MCP_TIMEOUT_SECONDS,
 )
 
 
@@ -146,6 +149,33 @@ class GovernanceDashboardConfig(BaseModel):
     port: int = Field(default_factory=lambda: int(os.getenv("GOVERNANCE_DASHBOARD_PORT", "8050")))
 
 
+class MCPServerConfig(BaseModel):
+    name: str
+    transport: str = Field(default="stdio")
+    command: Optional[str] = None
+    args: List[str] = Field(default_factory=list)
+    url: Optional[str] = None
+    headers: Dict[str, str] = Field(default_factory=dict)
+
+
+class MCPConfig(BaseModel):
+    enable: bool = Field(default_factory=lambda: DEFAULT_MCP_ENABLE)
+    servers: List[MCPServerConfig] = Field(default_factory=lambda: _parse_mcp_servers_json(DEFAULT_MCP_SERVERS_JSON))
+    timeout_seconds: int = DEFAULT_MCP_TIMEOUT_SECONDS
+    auto_discover: bool = True
+
+
+def _parse_mcp_servers_json(raw: str) -> List[MCPServerConfig]:
+    import json
+    try:
+        data = json.loads(raw)
+        if isinstance(data, list):
+            return [MCPServerConfig(**item) for item in data]
+    except Exception:
+        pass
+    return []
+
+
 class AIOConfig(BaseModel):
     observability: ObservabilityConfig = Field(default_factory=ObservabilityConfig)
     context: ContextConfig = Field(default_factory=ContextConfig)
@@ -161,4 +191,5 @@ class AIOConfig(BaseModel):
     safety_governance: SafetyGovernanceConfig = Field(default_factory=SafetyGovernanceConfig)
     cognitive_immune: CognitiveImmuneConfig = Field(default_factory=CognitiveImmuneConfig)
     governance_dashboard: GovernanceDashboardConfig = Field(default_factory=GovernanceDashboardConfig)
+    mcp: MCPConfig = Field(default_factory=MCPConfig)
     enable_priority_3: bool = Field(default_factory=lambda: os.getenv("ENABLE_PRIORITY_3", "true").lower() == "true")

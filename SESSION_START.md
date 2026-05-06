@@ -29,7 +29,7 @@
 ├──────────┼──────────────────────────────────────────────────┤
 │ Layer 8  │ Failure Recovery & Anti-Fragility (ReCiSt)       │ ✅ Priority 2
 ├──────────┼──────────────────────────────────────────────────┤
-│ Layer 7  │ Execution & Action (ToolGate / HermesAgent)      │ ✅ Priority 2
+│ Layer 7  │ Execution & Action (ToolGate / HermesAgent / MCP)│ ✅ Priority 5
 ├──────────┼──────────────────────────────────────────────────┤
 │ Layer 6  │ Tool-Use Optimization (G-STEP / HDPO / JTPRO)    │ ✅ Priority 2
 ├──────────┼──────────────────────────────────────────────────┤
@@ -57,6 +57,7 @@
 | Priority 2 | 3, 4, 6 | Complete | Unit + Integration + E2E |
 | Priority 3 | 9, 10, 11, 12 | Complete | Unit + Integration + Immune |
 | Priority 4 | Modularization, Persistent Memory, Immune Learning, Multi-Agent Real Dispatch, Governance Dashboard | Complete | Unit + Integration |
+| Priority 5 | MCP (Model Context Protocol) Integration | Complete | Unit + Integration |
 
 ---
 
@@ -84,8 +85,8 @@
 | `prompts/cognitive/*.txt` | Recon, plan, prove prompts | 3 files |
 | `prompts/safety/*.txt` | Constitutional mandates, boundary protocol | 2 files |
 | `prompts/meta/*.txt` | Self-evolution, multi-agent, governance, immune prompts | 4 files |
-| `tests/unit/test_*.py` | Layer-isolated unit tests (11 files) | — |
-| `tests/integration/test_*.py` | Cross-layer routing and E2E tests | 3 files |
+| `tests/unit/test_*.py` | Layer-isolated unit tests (12 files) | — |
+| `tests/integration/test_*.py` | Cross-layer routing and E2E tests | 4 files |
 | `tests/failure_injection/test_*.py` | Chaos and immune response tests | 2 files |
 | `docker-compose.yml` | Observability stack (OTel, Prometheus, Grafana, Jaeger) | — |
 | `requirements.txt` | Python dependencies (~12 core + optional) | — |
@@ -171,9 +172,9 @@ If context is lost between sessions:
 - **Additive only**: Never remove existing state fields from `AIOState`. Use `total=False` TypedDict.
 - **Feature flags**: All new functionality is gated by env-driven flags (e.g., `ENABLE_PRIORITY_3`, `MEMORY_BACKEND_TYPE`, `COGNITIVE_IMMUNE_LEARN_ENABLE`, `MULTI_AGENT_USE_LANGGRAPH_BACKEND`, `GOVERNANCE_DASHBOARD_ENABLE`).
 - **Observability**: Every layer method wraps logic in `self.obs.start_span()` and calls `record_latency()` + `count_node()`.
-- **Graceful degradation**: All external dependencies are optional with feature flags (`OTEL_AVAILABLE`, `REDIS_AVAILABLE`, `PSYCOPG2_AVAILABLE`, etc.).
-- **No new required dependencies**: Priority 4 added `redis>=5.0.0` and `psycopg2-binary>=2.9.0` to `requirements.txt`, but both are optional at runtime (guarded by availability checks and feature flags).
+- **Graceful degradation**: All external dependencies are optional with feature flags (`OTEL_AVAILABLE`, `REDIS_AVAILABLE`, `PSYCOPG2_AVAILABLE`, `HTTPX_AVAILABLE`, etc.).
+- **No new required dependencies**: Priority 4 added `redis>=5.0.0` and `psycopg2-binary>=2.9.0` to `requirements.txt`, but both are optional at runtime (guarded by availability checks and feature flags). Priority 5 uses existing `httpx>=0.25.0` for MCP SSE transport.
 
 ---
 
-*Last updated: Post-PR #8 and #9 — Multi-Agent Real Dispatch + Governance Dashboard*
+*Last updated: Post-PR #10 — MCP Integration (Priority 5)*

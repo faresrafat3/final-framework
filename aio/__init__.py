@@ -16,6 +16,8 @@ from .config.models import (
     SafetyGovernanceConfig,
     CognitiveImmuneConfig,
     GovernanceDashboardConfig,
+    MCPConfig,
+    MCPServerConfig,
 )
 from .config.deps import (
     OTEL_AVAILABLE,
@@ -42,6 +44,10 @@ from .config.deps import (
     LLM_PLANNER_MODEL,
     LLM_PLANNER_TEMPERATURE,
     LLM_PLANNER_MAX_TOKENS,
+    DEFAULT_MCP_ENABLE,
+    DEFAULT_MCP_SERVERS_JSON,
+    DEFAULT_MCP_TIMEOUT_SECONDS,
+    HTTPX_AVAILABLE,
 )
 from .layers.observability import ObservabilityLayer, _NullContext
 from .layers.context import ContextManager
@@ -69,6 +75,7 @@ from .layers.curiosity import CuriosityEngine
 from .layers.verification import Verifier
 from .layers.tool_optimizer import ToolOptimizer
 from .layers.tool_gate import ToolGate
+from .layers.mcp_client import MCPClient, MCPTransport, StdioTransport, SSETransport, node_mcp_discover
 from .layers.failure_recovery import FailureRecovery, FailureState
 from .layers.self_evolution import SelfEvolutionLayer
 from .layers.multi_agent import MultiAgentCoordinator
@@ -161,6 +168,8 @@ __all__ = [
     "SafetyGovernanceConfig",
     "CognitiveImmuneConfig",
     "GovernanceDashboardConfig",
+    "MCPConfig",
+    "MCPServerConfig",
     "OTEL_AVAILABLE",
     "PROMETHEUS_AVAILABLE",
     "DOCKER_AVAILABLE",
@@ -185,6 +194,10 @@ __all__ = [
     "LLM_PLANNER_MODEL",
     "LLM_PLANNER_TEMPERATURE",
     "LLM_PLANNER_MAX_TOKENS",
+    "DEFAULT_MCP_ENABLE",
+    "DEFAULT_MCP_SERVERS_JSON",
+    "DEFAULT_MCP_TIMEOUT_SECONDS",
+    "HTTPX_AVAILABLE",
     "ObservabilityLayer",
     "_NullContext",
     "ContextManager",
@@ -208,6 +221,11 @@ __all__ = [
     "Verifier",
     "ToolOptimizer",
     "ToolGate",
+    "MCPClient",
+    "MCPTransport",
+    "StdioTransport",
+    "SSETransport",
+    "node_mcp_discover",
     "FailureRecovery",
     "FailureState",
     "SelfEvolutionLayer",
