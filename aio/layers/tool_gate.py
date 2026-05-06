@@ -17,11 +17,12 @@ if DOCKER_AVAILABLE:
 class ToolGate:
     """Capability registry, HermesAgent routing, and Docker sandbox execution."""
 
-    def __init__(self, config: ToolGateConfig, observability: ObservabilityLayer) -> None:
+    def __init__(self, config: ToolGateConfig, observability: ObservabilityLayer, mcp_client: Optional[Any] = None) -> None:
         self.config = config
         self.obs = observability
         self._registry: Dict[str, Dict[str, Any]] = {}
         self._docker_client: Optional[Any] = None
+        self._mcp_client = mcp_client
         if DOCKER_AVAILABLE:
             try:
                 self._docker_client = docker.DockerClient(base_url=config.docker_socket)
@@ -29,6 +30,11 @@ class ToolGate:
             except Exception as exc:
                 self.obs.log(logging.WARNING, f"Docker client init failed: {exc}")
         self._register_defaults()
+        if self._mcp_client is not None:
+            try:
+                self._mcp_client.discover_and_register(self)
+            except Exception as exc:
+                self.obs.log(logging.WARNING, f"MCP discovery failed: {exc}")
 
     def _register_defaults(self) -> None:
         self.register_tool(
@@ -102,6 +108,11 @@ class ToolGate:
                 result.update(self._direct_run(tool, params))
 
             state["execution_result"] = result
+            if tool_name.startswith("mcp/") and self._mcp_client is not None:
+                state["mcp_execution_metadata"] = {
+                    "tool": tool_name,
+                    "latency_ms": round((time.time() - start) * 1000, 2),
+                }
             status = "success" if result.get("success") else "failure"
             self.obs.record_latency("toolgate.execute", time.time() - start)
             self.obs.count_node("toolgate.execute", status)

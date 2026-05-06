@@ -66,6 +66,10 @@ class AIOState(TypedDict, total=False):
     healing_actions: Optional[List[Dict[str, Any]]]
     threat_patterns_detected: Optional[List[Dict[str, Any]]]
     learned_anomaly_score: Optional[float]
+    # MCP (Priority 5)
+    mcp_discovered_tools: Optional[List[str]]
+    mcp_execution_metadata: Optional[Dict[str, Any]]
+    mcp_errors: Optional[List[str]]
 
 
 def make_initial_state(raw_input: str = "", session_id: Optional[str] = None) -> AIOState:
@@ -126,4 +130,7 @@ def make_initial_state(raw_input: str = "", session_id: Optional[str] = None) ->
         "healing_actions": None,
         "threat_patterns_detected": None,
         "learned_anomaly_score": None,
+        "mcp_discovered_tools": None,
+        "mcp_execution_metadata": None,
+        "mcp_errors": None,
         }

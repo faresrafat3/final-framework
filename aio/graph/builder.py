@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import logging
 from typing import Any, Optional
 
 from langgraph.graph import StateGraph, END
@@ -13,6 +14,7 @@ from ..layers.curiosity import CuriosityEngine
 from ..layers.verification import Verifier
 from ..layers.tool_optimizer import ToolOptimizer
 from ..layers.tool_gate import ToolGate
+from ..layers.mcp_client import MCPClient
 from ..layers.failure_recovery import FailureRecovery
 from ..layers.self_evolution import SelfEvolutionLayer
 from ..layers.multi_agent import MultiAgentCoordinator
@@ -88,7 +90,13 @@ def build_aio_graph(config: Optional[AIOConfig] = None, store: Optional[Any] = N
     curiosity = CuriosityEngine(cfg.curiosity, obs)
     verifier = Verifier(cfg.verifier, obs)
     toolopt = ToolOptimizer(cfg.tool_optimizer, obs)
-    toolgate = ToolGate(cfg.toolgate, obs)
+    mcp_client: Optional[Any] = None
+    if cfg.mcp.enable:
+        try:
+            mcp_client = MCPClient(cfg.mcp, obs)
+        except Exception as exc:
+            obs.log(logging.WARNING, f"MCP client instantiation failed: {exc}")
+    toolgate = ToolGate(cfg.toolgate, obs, mcp_client=mcp_client)
     recovery = FailureRecovery(cfg.failure_recovery, obs)
 
     graph = StateGraph(AIOState)

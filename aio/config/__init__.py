@@ -14,6 +14,8 @@ from .models import (
     SafetyGovernanceConfig,
     CognitiveImmuneConfig,
     GovernanceDashboardConfig,
+    MCPConfig,
+    MCPServerConfig,
 )
 from .deps import (
     OTEL_AVAILABLE,
@@ -38,6 +40,10 @@ from .deps import (
     LLM_PLANNER_MODEL,
     LLM_PLANNER_TEMPERATURE,
     LLM_PLANNER_MAX_TOKENS,
+    DEFAULT_MCP_ENABLE,
+    DEFAULT_MCP_SERVERS_JSON,
+    DEFAULT_MCP_TIMEOUT_SECONDS,
+    HTTPX_AVAILABLE,
 )
 
 __all__ = [
@@ -56,6 +62,8 @@ __all__ = [
     "SafetyGovernanceConfig",
     "CognitiveImmuneConfig",
     "GovernanceDashboardConfig",
+    "MCPConfig",
+    "MCPServerConfig",
     "OTEL_AVAILABLE",
     "PROMETHEUS_AVAILABLE",
     "DOCKER_AVAILABLE",
@@ -78,4 +86,8 @@ __all__ = [
     "LLM_PLANNER_MODEL",
     "LLM_PLANNER_TEMPERATURE",
     "LLM_PLANNER_MAX_TOKENS",
+    "DEFAULT_MCP_ENABLE",
+    "DEFAULT_MCP_SERVERS_JSON",
+    "DEFAULT_MCP_TIMEOUT_SECONDS",
+    "HTTPX_AVAILABLE",
 ]

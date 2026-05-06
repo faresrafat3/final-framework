@@ -7,6 +7,7 @@ from ..layers.curiosity import CuriosityEngine
 from ..layers.verification import Verifier
 from ..layers.tool_optimizer import ToolOptimizer
 from ..layers.tool_gate import ToolGate
+from ..layers.mcp_client import MCPClient, node_mcp_discover
 from ..layers.failure_recovery import FailureRecovery
 from ..layers.self_evolution import SelfEvolutionLayer
 from ..layers.multi_agent import MultiAgentCoordinator

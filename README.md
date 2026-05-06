@@ -95,7 +95,7 @@ docker-compose up -d
 - **CuriosityEngine** (Layer 4): Novelty detection, information gap identification, intrinsic reward scoring.
 - **Verifier** (Layer 5): Multi-modal verification ensemble (LLM critique + FormalJudge + AGEL-Comp).
 - **ToolOptimizer** (Layer 6): Tool necessity scoring, policy optimization, prompt optimization (G-STEP / HDPO / JTPRO).
-- **ToolGate** (Layer 7): HermesAgent routing, Docker sandbox execution, capability registry.
+- **ToolGate** (Layer 7): HermesAgent routing, Docker sandbox execution, capability registry, MCP client integration for external tool discovery.
 - **FailureRecovery** (Layer 8): ReCiSt state machine, NeuroShield boundaries, anti-fragility learning.
 - **SelfEvolutionLayer** (Layer 9): Performance analysis, trend reporting, safe config suggestions, bounded auto-apply.
 - **MultiAgentCoordinator** (Layer 10): Task decomposition, simulated dispatch/aggregate/synthesize with consensus scoring.
@@ -120,6 +120,9 @@ All behavior is driven by `AIOConfig` (Pydantic v2) and environment variables:
 | `MULTI_AGENT_ENABLE` | `true` | Layer 10 enable |
 | `SAFETY_GOVERNANCE_ENABLE` | `true` | Layer 11 enable |
 | `COGNITIVE_IMMUNE_ENABLE` | `true` | Layer 12 enable |
+| `MCP_ENABLE` | `false` | Enable MCP client and dynamic tool discovery |
+| `MCP_SERVERS` | `[]` | JSON array of MCP server configs |
+| `MCP_TIMEOUT_SECONDS` | `30` | Timeout for MCP JSON-RPC requests |
 
 ## Testing
 
@@ -139,6 +142,7 @@ pytest tests/ -v --cov=aio_framework --cov-report=term-missing
 # Smoke tests
 python -c "from aio_framework import build_aio_graph, AIOConfig; build_aio_graph(AIOConfig())"
 ENABLE_PRIORITY_3=false python -c "from aio_framework import build_aio_graph, AIOConfig; build_aio_graph(AIOConfig())"
+MCP_ENABLE=false python -c "from aio_framework import build_aio_graph, AIOConfig; build_aio_graph(AIOConfig())"
 ```
 
 ## Constitutional Mandates

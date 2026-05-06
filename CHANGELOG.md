@@ -1,5 +1,33 @@
 # Changelog
 
+## [Priority 5.0.0] — 2024-05-07
+
+### Added
+- **MCP (Model Context Protocol) Integration — Layer 7**
+  - `MCPClient` in `aio/layers/mcp_client.py` with JSON-RPC 2.0 over stdio and SSE transports
+  - `StdioTransport` spawns MCP servers via `subprocess.Popen` with lifecycle management
+  - `SSETransport` connects to MCP servers over HTTP using `httpx` (optional dependency)
+  - `MCPConfig` and `MCPServerConfig` Pydantic v2 models with env-driven defaults
+  - ToolGate integration: `MCPClient.discover_and_register()` dynamically registers MCP tools with `mcp/<server>/<tool>` namespacing
+  - MCP tool execution delegates back to `MCPClient.call_tool()` via handler closures
+  - Observability spans: `mcp.initialize`, `mcp.list_tools`, `mcp.call_tool`
+  - Graceful degradation: MCP unavailable or misconfigured → local tools only, no crash
+  - State fields: `mcp_discovered_tools`, `mcp_execution_metadata`, `mcp_errors`
+  - Feature flags: `MCP_ENABLE`, `MCP_SERVERS` (JSON array), `MCP_TIMEOUT_SECONDS`
+- **Testing**
+  - `tests/unit/test_mcp_client.py` — transport mocking, JSON-RPC formatting, discovery, graceful degradation, observability
+  - `tests/unit/test_tool_gate.py` — MCP discovery on init, MCP tool execution metadata, graceful fallback
+  - `tests/integration/test_mcp_integration.py` — graph compilation with MCP enabled, tool routing, fallback to local tools
+
+### Metrics Targets
+| Metric | Target | Status |
+|--------|--------|--------|
+| MCP client unit test coverage | > 90% | All transport and client paths mocked |
+| Graph compilation with MCP enabled | 100% | Smoke tests pass with/without MCP |
+| Graceful degradation when MCP server unreachable | 100% | Falls back to local tools silently |
+
+---
+
 ## [Priority 4.0.0] — 2024-05-06
 
 ### Added

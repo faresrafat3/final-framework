@@ -24,6 +24,7 @@ from .curiosity import CuriosityEngine
 from .verification import Verifier
 from .tool_optimizer import ToolOptimizer
 from .tool_gate import ToolGate
+from .mcp_client import MCPClient, MCPTransport, StdioTransport, SSETransport, node_mcp_discover
 from .failure_recovery import FailureRecovery, FailureState
 from .self_evolution import SelfEvolutionLayer
 from .multi_agent import MultiAgentCoordinator
@@ -55,6 +56,11 @@ __all__ = [
     "Verifier",
     "ToolOptimizer",
     "ToolGate",
+    "MCPClient",
+    "MCPTransport",
+    "StdioTransport",
+    "SSETransport",
+    "node_mcp_discover",
     "FailureRecovery",
     "FailureState",
     "SelfEvolutionLayer",
