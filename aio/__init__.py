@@ -71,6 +71,7 @@ from .layers.tool_gate import ToolGate
 from .layers.failure_recovery import FailureRecovery, FailureState
 from .layers.self_evolution import SelfEvolutionLayer
 from .layers.multi_agent import MultiAgentCoordinator
+from .layers.multi_agent_backend import SimulatedMultiAgentBackend, LangGraphMultiAgentBackend
 from .layers.safety_governance import SafetyGovernance
 from .layers.cognitive_immune import CognitiveImmuneSystem
 from .layers.immune_learning import ImmuneLearningEngine
@@ -202,6 +203,8 @@ __all__ = [
     "FailureState",
     "SelfEvolutionLayer",
     "MultiAgentCoordinator",
+    "SimulatedMultiAgentBackend",
+    "LangGraphMultiAgentBackend",
     "SafetyGovernance",
     "CognitiveImmuneSystem",
     "ImmuneLearningEngine",

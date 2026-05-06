@@ -52,6 +52,9 @@ class AIOState(TypedDict, total=False):
     coordination_plan: Optional[Dict[str, Any]]
     agent_outputs: Optional[Dict[str, Any]]
     consensus_score: Optional[float]
+    # Internal routing fields for LangGraph multi-agent backend
+    _ma_needed_agents: Optional[List[str]]
+    _ma_subtasks: Optional[List[Dict[str, Any]]]
     # Layer 11 — Safety & Governance
     audit_trail: Optional[List[Dict[str, Any]]]
     governance_result: Optional[Dict[str, Any]]
@@ -112,6 +115,8 @@ def make_initial_state(raw_input: str = "", session_id: Optional[str] = None) ->
         "coordination_plan": None,
         "agent_outputs": None,
         "consensus_score": None,
+        "_ma_needed_agents": None,
+        "_ma_subtasks": None,
         "audit_trail": None,
         "governance_result": None,
         "compliance_violations": None,
