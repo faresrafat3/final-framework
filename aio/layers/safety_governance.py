@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import time
-from typing import Any, Dict, List
+from typing import Any, Dict, List, Optional
 
 from ..config.models import SafetyGovernanceConfig
 from .observability import ObservabilityLayer
@@ -11,9 +11,15 @@ from ..state import AIOState
 class SafetyGovernance:
     """Per-turn audit, constitutional compliance, governance voting, and decision recording."""
 
-    def __init__(self, config: SafetyGovernanceConfig, observability: ObservabilityLayer) -> None:
+    def __init__(
+        self,
+        config: SafetyGovernanceConfig,
+        observability: ObservabilityLayer,
+        store: Optional[Any] = None,
+    ) -> None:
         self.config = config
         self.obs = observability
+        self._store = store
         self._decisions: List[Dict[str, Any]] = []
 
     def audit(self, state: AIOState) -> AIOState:
@@ -85,6 +91,10 @@ class SafetyGovernance:
                 "compliance_violations": state.get("compliance_violations"),
             }
             self._decisions.append(decision)
+            if self._store is not None:
+                sid = state.get("session_id") or "unknown"
+                self._store.record_decision(sid, decision)
+                self._store.ingest(state)
             self.obs.record_latency("governance.record", time.time() - start)
             self.obs.count_node("governance.record", "success")
         return state

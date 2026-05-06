@@ -78,7 +78,7 @@ from .routing import (
 )
 
 
-def build_aio_graph(config: Optional[AIOConfig] = None) -> Any:
+def build_aio_graph(config: Optional[AIOConfig] = None, store: Optional[Any] = None) -> Any:
     """Build and compile the Priority 2 AIO StateGraph."""
     cfg = config or AIOConfig()
     obs = ObservabilityLayer(cfg.observability)
@@ -146,7 +146,7 @@ def build_aio_graph(config: Optional[AIOConfig] = None) -> Any:
     # Layer 9-12 nodes (added unconditionally; routing decides if they run)
     self_evol = SelfEvolutionLayer(cfg.self_evolution, obs)
     multi_agent = MultiAgentCoordinator(cfg.multi_agent, obs)
-    governance = SafetyGovernance(cfg.safety_governance, obs)
+    governance = SafetyGovernance(cfg.safety_governance, obs, store=store)
     immune = CognitiveImmuneSystem(cfg.cognitive_immune, obs)
 
     graph.add_node("self_evolution_analyze", lambda s: node_self_evolution_analyze(s, self_evol))

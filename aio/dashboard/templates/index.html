@@ -1,0 +1,118 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>AIO Governance Dashboard</title>
+  <style>
+    :root {
+      --bg: #0f172a;
+      --surface: #1e293b;
+      --text: #e2e8f0;
+      --muted: #94a3b8;
+      --accent: #38bdf8;
+      --danger: #ef4444;
+      --success: #22c55e;
+      --border: #334155;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, "Apple Color Emoji", "Segoe UI Emoji";
+      background: var(--bg);
+      color: var(--text);
+      line-height: 1.5;
+    }
+    header {
+      padding: 1.25rem 1.5rem;
+      border-bottom: 1px solid var(--border);
+      background: var(--surface);
+    }
+    header h1 { margin: 0; font-size: 1.25rem; }
+    .container { padding: 1.5rem; max-width: 1200px; margin: 0 auto; }
+    .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 1rem; }
+    .card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 0.5rem;
+      padding: 1rem;
+    }
+    .card h3 { margin: 0 0 0.25rem; font-size: 0.875rem; color: var(--muted); text-transform: uppercase; letter-spacing: 0.05em; }
+    .card .value { font-size: 1.75rem; font-weight: 700; }
+    .value.danger { color: var(--danger); }
+    .value.success { color: var(--success); }
+    .value.accent { color: var(--accent); }
+    table { width: 100%; border-collapse: collapse; margin-top: 1rem; }
+    th, td { text-align: left; padding: 0.625rem 0.75rem; border-bottom: 1px solid var(--border); }
+    th { color: var(--muted); font-weight: 600; font-size: 0.8rem; text-transform: uppercase; letter-spacing: 0.05em; }
+    a { color: var(--accent); text-decoration: none; }
+    a:hover { text-decoration: underline; }
+    .pill {
+      display: inline-block;
+      padding: 0.15rem 0.5rem;
+      border-radius: 999px;
+      font-size: 0.75rem;
+      font-weight: 600;
+      background: rgba(56,189,248,0.15);
+      color: var(--accent);
+    }
+    .pill.danger { background: rgba(239,68,68,0.15); color: var(--danger); }
+  </style>
+</head>
+<body>
+  <header><h1>AIO Governance Dashboard</h1></header>
+  <div class="container">
+    <div class="grid">
+      <div class="card">
+        <h3>Sessions</h3>
+        <div class="value accent">{{ summary.total_sessions }}</div>
+      </div>
+      <div class="card">
+        <h3>Audit Entries</h3>
+        <div class="value success">{{ summary.total_audits }}</div>
+      </div>
+      <div class="card">
+        <h3>Violations</h3>
+        <div class="value {% if summary.total_violations > 0 %}danger{% else %}success{% endif %}">
+          {{ summary.total_violations }}
+        </div>
+      </div>
+      <div class="card">
+        <h3>Violation Types</h3>
+        <div class="value accent">{{ summary.violation_types | length }}</div>
+      </div>
+    </div>
+
+    {% if summary.violation_types %}
+    <h2 style="margin-top: 1.75rem; font-size: 1rem;">Violation Breakdown</h2>
+    <div class="grid" style="margin-top: 0.75rem;">
+      {% for vtype, count in summary.violation_types.items() %}
+      <div class="card">
+        <h3>{{ vtype }}</h3>
+        <div class="value {% if count > 0 %}danger{% else %}success{% endif %}">{{ count }}</div>
+      </div>
+      {% endfor %}
+    </div>
+    {% endif %}
+
+    <h2 style="margin-top: 1.75rem; font-size: 1rem;">Sessions</h2>
+    {% if sessions %}
+    <table>
+      <thead>
+        <tr><th>Session ID</th><th>Actions</th></tr>
+      </thead>
+      <tbody>
+        {% for sid in sessions %}
+        <tr>
+          <td><code>{{ sid }}</code></td>
+          <td><a href="/session/{{ sid }}">View details →</a></td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+    {% else %}
+    <p style="color: var(--muted);">No sessions recorded yet.</p>
+    {% endif %}
+  </div>
+</body>
+</html>
