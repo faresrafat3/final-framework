@@ -17,6 +17,11 @@ from aio import (
     ContextConfig,
     MemoryBridge,
     MemoryConfig,
+    BaseMemoryBackend,
+    InMemoryBackend,
+    RedisBackend,
+    PostgresBackend,
+    HybridBackend,
     PlanningLayer,
     PlanningConfig,
     HiPlanPlanner,
@@ -110,6 +115,8 @@ from aio import (
     LANGCHAIN_OPENAI_AVAILABLE,
     LANGCHAIN_ANTHROPIC_AVAILABLE,
     LANGCHAIN_CHAT_AVAILABLE,
+    REDIS_AVAILABLE,
+    PSYCOPG2_AVAILABLE,
     _NullContext,
 )
 
@@ -130,6 +137,8 @@ from aio.config.deps import (
     LangSmithClient as _LangSmithClient,
     docker as _docker_mod,
     trace as _trace_mod,
+    redis as _redis_mod,
+    psycopg2 as _psycopg2_mod,
 )
 
 # Assign to module-level names so ``patch("aio_framework.X")`` resolves.
@@ -143,6 +152,8 @@ ChatAnthropic = _ChatAnthropic
 LangSmithClient = _LangSmithClient
 docker = _docker_mod
 trace = _trace_mod
+redis = _redis_mod
+psycopg2 = _psycopg2_mod
 
 
 def run_aio(raw_input: str, session_id: str | None = None, config: AIOConfig | None = None) -> AIOState:  # type: ignore[name-defined]

@@ -12,6 +12,15 @@ from ..config.deps import SENTENCE_TRANSFORMERS_AVAILABLE
 from ..config.models import MemoryConfig
 from .observability import ObservabilityLayer
 from ..state import AIOState
+from .memory_backends import (
+    BaseMemoryBackend,
+    InMemoryBackend,
+    RedisBackend,
+    PostgresBackend,
+    HybridBackend,
+)
+
+logger = logging.getLogger(__name__)
 
 
 class MemoryBridge:
@@ -20,9 +29,10 @@ class MemoryBridge:
     def __init__(self, config: MemoryConfig, observability: ObservabilityLayer) -> None:
         self.config = config
         self.obs = observability
-        self._episodic: Dict[str, Dict[str, Any]] = {}
-        self._long_term: Dict[str, Dict[str, Any]] = {}
-        self._keyword_index: Dict[str, List[str]] = {}
+        self._backend = self._create_backend(config)
+        self._episodic: Dict[str, Dict[str, Any]] = self._backend.episodic
+        self._long_term: Dict[str, Dict[str, Any]] = self._backend.long_term
+        self._keyword_index: Dict[str, List[str]] = self._backend.keyword_index
         self._embedding_model: Optional[Any] = None
         _st_available = SENTENCE_TRANSFORMERS_AVAILABLE
         _st_cls = None
@@ -35,6 +45,33 @@ class MemoryBridge:
                 self._embedding_model = _st_cls(config.embedding_model_name)
             except Exception as exc:  # pragma: no cover
                 logging.warning("Failed to load embedding model '%s': %s. Falling back to pseudo-embeddings.", config.embedding_model_name, exc)
+
+    def _create_backend(self, config: MemoryConfig) -> BaseMemoryBackend:
+        backend_type = config.backend_type.lower()
+        if backend_type == "redis":
+            try:
+                return RedisBackend(config.redis_url)
+            except Exception as exc:  # pragma: no cover
+                logger.warning("RedisBackend init failed: %s. Falling back to InMemoryBackend.", exc)
+                return InMemoryBackend()
+        if backend_type == "postgres":
+            try:
+                return PostgresBackend(config.postgres_url)
+            except Exception as exc:  # pragma: no cover
+                logger.warning("PostgresBackend init failed: %s. Falling back to InMemoryBackend.", exc)
+                return InMemoryBackend()
+        if backend_type == "hybrid":
+            try:
+                return HybridBackend(config.redis_url, config.postgres_url)
+            except Exception as exc:  # pragma: no cover
+                logger.warning("HybridBackend init failed: %s. Falling back to InMemoryBackend.", exc)
+                return InMemoryBackend()
+        if backend_type != "memory":
+            logger.warning("Unknown MEMORY_BACKEND_TYPE '%s'. Falling back to InMemoryBackend.", config.backend_type)
+        return InMemoryBackend()
+
+    def close(self) -> None:
+        self._backend.close()
 
     def _hash(self, content: str) -> str:
         return hashlib.sha256(content.encode()).hexdigest()[:16]
@@ -96,6 +133,7 @@ class MemoryBridge:
                 self._index_keywords(eid, content)
             self.obs.record_latency("memory.encode", time.time() - start)
             self.obs.count_node("memory.encode", "success")
+        self._backend.sync()
         return state
 
     def verify(self, state: AIOState) -> AIOState:
@@ -114,6 +152,7 @@ class MemoryBridge:
                     entry["verification_passed"] = True
             self.obs.record_latency("memory.verify", time.time() - start)
             self.obs.count_node("memory.verify", "success")
+        self._backend.sync()
         return state
 
     def store(self, state: AIOState) -> AIOState:
@@ -141,6 +180,7 @@ class MemoryBridge:
             state["long_term_memory"] = list(self._long_term.values())
             self.obs.record_latency("memory.consolidate", time.time() - start)
             self.obs.count_node("memory.consolidate", "success")
+        self._backend.sync()
         return state
 
     def retrieve(self, state: AIOState) -> AIOState:
@@ -193,4 +233,5 @@ class MemoryBridge:
                                 lst.remove(eid)
             self.obs.record_latency("memory.forget", time.time() - start)
             self.obs.count_node("memory.forget", "success")
+        self._backend.sync()
         return state

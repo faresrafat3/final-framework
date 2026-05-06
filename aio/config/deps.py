@@ -76,6 +76,20 @@ except Exception:  # pragma: no cover
 
 LANGCHAIN_CHAT_AVAILABLE = LANGCHAIN_OPENAI_AVAILABLE or LANGCHAIN_ANTHROPIC_AVAILABLE
 
+try:
+    import redis
+    REDIS_AVAILABLE = True
+except Exception:  # pragma: no cover
+    redis = None  # type: ignore[misc]
+    REDIS_AVAILABLE = False
+
+try:
+    import psycopg2
+    PSYCOPG2_AVAILABLE = True
+except Exception:  # pragma: no cover
+    psycopg2 = None  # type: ignore[misc]
+    PSYCOPG2_AVAILABLE = False
+
 
 # ---------------------------------------------------------------------------
 # Constants & Configuration

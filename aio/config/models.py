@@ -42,6 +42,9 @@ class MemoryConfig(BaseModel):
     forget_ttl_seconds: int = 86400
     use_real_embeddings: bool = Field(default_factory=lambda: os.getenv("ENABLE_REAL_EMBEDDINGS", "false").lower() == "true")
     embedding_model_name: str = Field(default="all-MiniLM-L6-v2")
+    backend_type: str = Field(default_factory=lambda: os.getenv("MEMORY_BACKEND_TYPE", "memory"))
+    redis_url: str = Field(default_factory=lambda: os.getenv("REDIS_URL", "redis://localhost:6379/0"))
+    postgres_url: str = Field(default_factory=lambda: os.getenv("POSTGRES_URL", "postgresql://localhost/aio"))
 
 
 class PlanningConfig(BaseModel):
