@@ -11,7 +11,7 @@
 - **Language**: Python 3.12+
 - **Core Framework**: LangGraph StateGraph
 - **Architecture**: 13-layer cognitive stack (Layers 0–12)
-- **Single-file core**: `aio_framework.py` (~2600 lines)
+- **Package core**: `aio/` package with `layers/`, `config/`, `graph/` submodules (`aio_framework.py` is a backward-compatible re-export shim)
 
 ---
 
@@ -56,6 +56,7 @@
 | Priority 1 | 0, 1, 2, 5, 7, 8 | Complete | Unit + Integration + Chaos |
 | Priority 2 | 3, 4, 6 | Complete | Unit + Integration + E2E |
 | Priority 3 | 9, 10, 11, 12 | Complete | Unit + Integration + Immune |
+| Priority 4 | Modularization, Persistent Memory, Immune Learning | Complete | Unit + Integration |
 
 ---
 
@@ -63,7 +64,16 @@
 
 | File | Purpose | Approx Lines |
 |------|---------|-------------|
-| `aio_framework.py` | Single-file core: all configs, state, layers, nodes, routing, graph builder | ~2600 |
+| `aio/` | Package core: configs, state, layers, nodes, routing, graph builder | — |
+| `aio/__init__.py` | Public API re-exports for clean imports | ~270 |
+| `aio/state.py` | `AIOState` TypedDict and `make_initial_state()` | ~125 |
+| `aio/config/models.py` | Pydantic v2 config classes (`AIOConfig`, per-layer configs) | ~155 |
+| `aio/config/deps.py` | Optional dependency guards, env-driven constants | ~110 |
+| `aio/layers/` | Layer implementations (14 modules) | ~1000 total |
+| `aio/graph/builder.py` | `build_aio_graph()` — StateGraph assembly | ~230 |
+| `aio/graph/nodes.py` | Node wrappers for every layer | ~240 |
+| `aio/graph/routing.py` | Conditional edge routing functions | ~90 |
+| `aio_framework.py` | Backward-compatible shim: re-exports all public symbols | ~170 |
 | `project_blueprint.md` | Full 13-layer architectural spec with contracts and data flows | ~350 |
 | `CHANGELOG.md` | Release notes per priority with metrics targets | ~120 |
 | `README.md` | Quick start, project structure, configuration reference | ~130 |
@@ -74,11 +84,11 @@
 | `prompts/cognitive/*.txt` | Recon, plan, prove prompts | 3 files |
 | `prompts/safety/*.txt` | Constitutional mandates, boundary protocol | 2 files |
 | `prompts/meta/*.txt` | Self-evolution, multi-agent, governance, immune prompts | 4 files |
-| `tests/unit/test_*.py` | Layer-isolated unit tests (10 files) | — |
+| `tests/unit/test_*.py` | Layer-isolated unit tests (11 files) | — |
 | `tests/integration/test_*.py` | Cross-layer routing and E2E tests | 3 files |
 | `tests/failure_injection/test_*.py` | Chaos and immune response tests | 2 files |
 | `docker-compose.yml` | Observability stack (OTel, Prometheus, Grafana, Jaeger) | — |
-| `requirements.txt` | Python dependencies (no new deps for Priority 3) | ~10 packages |
+| `requirements.txt` | Python dependencies (~12 core + optional) | — |
 
 ---
 
@@ -89,7 +99,7 @@
 pip install -r requirements.txt
 
 # Run full test suite
-pytest tests/ -v --cov=aio_framework --cov-report=term-missing
+pytest tests/ -v --cov=aio --cov-report=term-missing
 
 # Run specific test categories
 pytest tests/unit/ -v
@@ -102,11 +112,14 @@ python aio_framework.py "echo hello world"
 # Start observability stack
 docker-compose up -d
 
-# Graph compilation smoke test (backward compat)
+# Graph compilation smoke test (backward compat via shim)
 python -c "from aio_framework import build_aio_graph, AIOConfig; build_aio_graph(AIOConfig())"
 
-# Graph compilation smoke test (Priority 3 enabled)
-ENABLE_PRIORITY_3=true python -c "from aio_framework import build_aio_graph, AIOConfig; build_aio_graph(AIOConfig())"
+# Graph compilation smoke test (package import)
+python -c "from aio import build_aio_graph, AIOConfig; build_aio_graph(AIOConfig())"
+
+# Graph compilation smoke test (Priority 3 disabled)
+ENABLE_PRIORITY_3=false python -c "from aio import build_aio_graph, AIOConfig; build_aio_graph(AIOConfig())"
 ```
 
 ---
@@ -132,7 +145,7 @@ If context is lost between sessions:
 1. **Read the three docs**: `SESSION_START.md` → `PROJECT_STATE.md` → `DECISION_LOG.md`
 2. **Run tests** to verify the codebase is in a known-good state
 3. **Check git log** (`git log --oneline -10`) to see recent commits
-4. **Examine any open TODOs** in the codebase: `grep -rn "TODO\|FIXME\|XXX" aio_framework.py`
+4. **Examine any open TODOs** in the codebase: `grep -rn "TODO\|FIXME\|XXX" aio/`
 5. **Review the blueprint** (`project_blueprint.md`) for the layer you intend to modify
 
 ---
@@ -141,25 +154,26 @@ If context is lost between sessions:
 
 | Goal | Start Here |
 |------|-----------|
-| Add a new layer | `aio_framework.py` → Config → State → Layer class → Node wrapper → Routing → Graph builder |
-| Modify existing layer | Find the layer class in `aio_framework.py`, check its unit test |
+| Add a new layer | `aio/layers/` → add module → register in `aio/__init__.py` → wire into `aio/graph/builder.py` |
+| Modify existing layer | Find the layer class in `aio/layers/<layer>.py`, check its unit test |
 | Add tests | Mirror existing test in `tests/unit/` or `tests/integration/` |
 | Update docs | `README.md`, `CHANGELOG.md`, `project_blueprint.md`, and the three session docs |
-| Debug routing | `build_aio_graph()` in `aio_framework.py` + integration tests |
-| Tune safety/governance | Layer 11 (`SafetyGovernance`) + `prompts/meta/governance.txt` |
-| Tune immune system | Layer 12 (`CognitiveImmuneSystem`) + `prompts/meta/immune.txt` |
+| Debug routing | `aio/graph/routing.py` + `aio/graph/builder.py` + integration tests |
+| Tune safety/governance | `aio/layers/safety_governance.py` + `prompts/meta/governance.txt` |
+| Tune immune system | `aio/layers/cognitive_immune.py` + `aio/layers/immune_learning.py` + `prompts/meta/immune.txt` |
+| Change memory backend | `aio/layers/memory_backends.py` + `MEMORY_BACKEND_TYPE` env var |
 
 ---
 
 ## 9. Important Conventions
 
-- **Single-file core**: All layer classes live in `aio_framework.py`. Future modularization is documented in `DECISION_LOG.md`.
+- **Package core**: All layer classes live in `aio/layers/`. `aio_framework.py` is a backward-compatible re-export shim (preserves old import paths).
 - **Additive only**: Never remove existing state fields from `AIOState`. Use `total=False` TypedDict.
-- **Feature flags**: All new functionality is gated by env-driven flags (e.g., `ENABLE_PRIORITY_3`).
+- **Feature flags**: All new functionality is gated by env-driven flags (e.g., `ENABLE_PRIORITY_3`, `MEMORY_BACKEND_TYPE`, `COGNITIVE_IMMUNE_LEARN_ENABLE`).
 - **Observability**: Every layer method wraps logic in `self.obs.start_span()` and calls `record_latency()` + `count_node()`.
-- **Graceful degradation**: All external dependencies are optional with feature flags (`OTEL_AVAILABLE`, etc.).
-- **No new dependencies**: Priority 3 added zero new Python packages.
+- **Graceful degradation**: All external dependencies are optional with feature flags (`OTEL_AVAILABLE`, `REDIS_AVAILABLE`, `PSYCOPG2_AVAILABLE`, etc.).
+- **No new required dependencies**: Priority 4 added `redis>=5.0.0` and `psycopg2-binary>=2.9.0` to `requirements.txt`, but both are optional at runtime (guarded by availability checks and feature flags).
 
 ---
 
-*Last updated: Priority 3 completion*
+*Last updated: Priority 4 completion*

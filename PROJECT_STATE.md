@@ -38,12 +38,12 @@
 | `tests/unit/test_multi_agent.py` | Decompose, dispatch, aggregate, synthesize, registry | 3 |
 | `tests/unit/test_safety_governance.py` | Audit, compliance, vote, record with constitutional checks | 3 |
 | `tests/unit/test_cognitive_immune.py` | Scan, detect, quarantine, heal, update with anomaly injection | 3 |
+| `tests/unit/test_llm_planner.py` | LLM planner fallback, mocked OpenAI/Anthropic, JSON parsing, observability counts | 4 |
 | `tests/integration/test_layer_interactions.py` | Cross-layer state propagation | 1 |
 | `tests/integration/test_end_to_end.py` | Full graph compilation, echo, safety, multi-turn, failure, overflow | 1+2 |
 | `tests/integration/test_priority3_routing.py` | Conditional routing with `enable_priority_3` true/false | 3 |
 | `tests/failure_injection/test_chaos.py` | Memory corruption, tool timeout, Docker crash, verification failure, overflow, boundary breach, retry exhaustion | 1+2 |
 | `tests/failure_injection/test_immune_response.py` | Memory corruption quarantine, rapid failure escalation, auto-heal, threat pattern persistence | 3 |
-| `tests/unit/test_llm_planner.py` | LLM planner fallback, mocked OpenAI/Anthropic, JSON parsing, observability counts | 4 |
 
 ---
 
@@ -54,7 +54,7 @@
 3. **Docker sandbox requires local socket**: Falls back to graceful error if unavailable.
 4. ~~Plan generation is heuristic-based~~ ✅ Done — LLM-based planning available behind `ENABLE_LLM_PLANNING` flag with graceful fallback to heuristics.
 5. **Prometheus binds to all interfaces**: Configure firewall rules for production.
-6. **Single-file growth**: `aio_framework.py` is ~2600 lines. Future Priority 4 may warrant modularization (see `DECISION_LOG.md`).
+6. ~~Single-file growth~~ ✅ Done — `aio_framework.py` modularized into `aio/` package with `layers/`, `config/`, `graph/` submodules (see `DECISION_LOG.md`).
 7. **Multi-agent dispatch is simulated**: Deterministic agent simulation using registry; no external agent framework dependencies.
 8. **Self-evolution auto-apply is bounded**: Only whitelisted config keys can be modified automatically.
 
@@ -62,19 +62,19 @@
 
 ## 4. In-Flight Work
 
-> None. Priority 3 is complete.
+> Priority 4 is complete.
 
 ---
 
-## 5. Ordered Next Steps (Priority 4 Ideas)
+## 5. Ordered Next Steps (Post-Priority 4)
 
-1. **Modularize `aio_framework.py`**: Split into `aio/` package with `layers/`, `config/`, `graph/`, `prompts/` submodules. Document trade-offs in `DECISION_LOG.md`.
+1. ~~Modularize `aio_framework.py`~~ ✅ Done — split into `aio/` package with `layers/`, `config/`, `graph/` submodules.
 2. ~~Real embedding integration~~ ✅ Done — integrated behind `ENABLE_REAL_EMBEDDINGS` flag.
 3. ~~LLM-based planning~~ ✅ Done — integrated behind `ENABLE_LLM_PLANNING` flag with optional `langchain-openai` / `langchain-anthropic` providers.
-4. **Persistent memory backend**: Add Redis/PostgreSQL backend for `MemoryBridge`.
-5. **Multi-agent real dispatch**: Integrate with actual agent framework (e.g., LangGraph multi-agent) behind abstraction layer.
-6. **Governance dashboard**: Add web UI for audit trail and compliance monitoring.
-7. **Cognitive immune system learning**: Train anomaly detection model on historical threat patterns.
+4. ~~Persistent memory backend~~ ✅ Done — `InMemoryBackend`, `RedisBackend`, `PostgresBackend`, `HybridBackend` behind `MEMORY_BACKEND_TYPE` flag.
+5. ~~Cognitive immune system learning~~ ✅ Done — `ImmuneLearningEngine` with PostgreSQL storage, rolling baselines, Z-score anomaly detection behind `COGNITIVE_IMMUNE_LEARN_ENABLE` flag.
+6. **Multi-agent real dispatch**: Integrate with actual agent framework (e.g., LangGraph multi-agent) behind abstraction layer.
+7. **Governance dashboard**: Add web UI for audit trail and compliance monitoring.
 
 ---
 
@@ -92,11 +92,15 @@ pytest: >=8.0
 pytest-asyncio: >=0.23
 pytest-cov: >=4.1
 sentence-transformers: >=2.2.0
+redis: >=5.0.0
+psycopg2-binary: >=2.9.0
 langchain-openai: >=0.1.0 (optional)
 langchain-anthropic: >=0.1.0 (optional)
 ```
 
-**New dependency added in Priority 3+:** `sentence-transformers>=2.2.0` (optional, behind feature flag).
+**New dependencies added in Priority 4:**
+- `redis>=5.0.0` (optional, behind `MEMORY_BACKEND_TYPE` / `REDIS_URL` feature flags)
+- `psycopg2-binary>=2.9.0` (optional, behind `MEMORY_BACKEND_TYPE` / `POSTGRES_URL` / `COGNITIVE_IMMUNE_LEARN_ENABLE` feature flags)
 
 ---
 
@@ -111,9 +115,15 @@ langchain-anthropic: >=0.1.0 (optional)
 | `COGNITIVE_IMMUNE_ENABLE` | `true` | Layer 12 enable |
 | `ENABLE_REAL_EMBEDDINGS` | `false` | Use `sentence-transformers` for real embeddings (fallback to pseudo-embeddings if unavailable) |
 | `ENABLE_LLM_PLANNING` | `false` | Use LangChain LLM providers for base plan, HiPlan, FLARE, and PPA (fallback to heuristics if unavailable or disabled) |
+| `MEMORY_BACKEND_TYPE` | `memory` | MemoryBridge backend: `memory` (in-process), `redis`, `postgres`, `hybrid` |
+| `REDIS_URL` | `redis://localhost:6379/0` | Redis connection string for `RedisBackend` |
+| `POSTGRES_URL` | `postgresql://localhost/aio` | PostgreSQL connection string for `PostgresBackend` and `ImmuneLearningEngine` |
+| `COGNITIVE_IMMUNE_LEARN_ENABLE` | `false` | Enable `ImmuneLearningEngine` learned anomaly detection |
+| `LEARN_ROLLING_WINDOW` | `100` | Rolling window size for immune learning baselines (read via `CognitiveImmuneConfig`) |
+| `LEARN_Z_THRESHOLD` | `2.0` | Z-score threshold for immune anomaly detection (read via `CognitiveImmuneConfig`) |
 
 All flags are env-driven and checked at config initialization time.
 
 ---
 
-*Last updated: LLM-based planning integration (Priority 4 step)*
+*Last updated: Priority 4 completion*
