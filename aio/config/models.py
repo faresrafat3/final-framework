@@ -140,6 +140,12 @@ class CognitiveImmuneConfig(BaseModel):
     learn_record_ttl_seconds: int = 604800
 
 
+class GovernanceDashboardConfig(BaseModel):
+    enable: bool = Field(default_factory=lambda: os.getenv("GOVERNANCE_DASHBOARD_ENABLE", "false").lower() == "true")
+    host: str = Field(default_factory=lambda: os.getenv("GOVERNANCE_DASHBOARD_HOST", "0.0.0.0"))
+    port: int = Field(default_factory=lambda: int(os.getenv("GOVERNANCE_DASHBOARD_PORT", "8050")))
+
+
 class AIOConfig(BaseModel):
     observability: ObservabilityConfig = Field(default_factory=ObservabilityConfig)
     context: ContextConfig = Field(default_factory=ContextConfig)
@@ -154,4 +160,5 @@ class AIOConfig(BaseModel):
     multi_agent: MultiAgentConfig = Field(default_factory=MultiAgentConfig)
     safety_governance: SafetyGovernanceConfig = Field(default_factory=SafetyGovernanceConfig)
     cognitive_immune: CognitiveImmuneConfig = Field(default_factory=CognitiveImmuneConfig)
+    governance_dashboard: GovernanceDashboardConfig = Field(default_factory=GovernanceDashboardConfig)
     enable_priority_3: bool = Field(default_factory=lambda: os.getenv("ENABLE_PRIORITY_3", "true").lower() == "true")

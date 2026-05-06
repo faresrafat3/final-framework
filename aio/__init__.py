@@ -15,6 +15,7 @@ from .config.models import (
     MultiAgentConfig,
     SafetyGovernanceConfig,
     CognitiveImmuneConfig,
+    GovernanceDashboardConfig,
 )
 from .config.deps import (
     OTEL_AVAILABLE,
@@ -77,6 +78,13 @@ from .layers.cognitive_immune import CognitiveImmuneSystem
 from .layers.immune_learning import ImmuneLearningEngine
 from .state import AIOState, make_initial_state
 from .graph.builder import build_aio_graph
+from .dashboard.store import AuditStore
+
+try:
+    from .dashboard.app import create_dashboard_app
+except Exception:  # pragma: no cover
+    create_dashboard_app = None  # type: ignore[misc,assignment]
+
 from .graph.nodes import (
     node_context_ingest,
     node_context_sculpt,
@@ -152,6 +160,7 @@ __all__ = [
     "MultiAgentConfig",
     "SafetyGovernanceConfig",
     "CognitiveImmuneConfig",
+    "GovernanceDashboardConfig",
     "OTEL_AVAILABLE",
     "PROMETHEUS_AVAILABLE",
     "DOCKER_AVAILABLE",
@@ -208,6 +217,8 @@ __all__ = [
     "SafetyGovernance",
     "CognitiveImmuneSystem",
     "ImmuneLearningEngine",
+    "AuditStore",
+    "create_dashboard_app",
     "AIOState",
     "make_initial_state",
     "build_aio_graph",

@@ -13,6 +13,7 @@ from .models import (
     MultiAgentConfig,
     SafetyGovernanceConfig,
     CognitiveImmuneConfig,
+    GovernanceDashboardConfig,
 )
 from .deps import (
     OTEL_AVAILABLE,
@@ -54,6 +55,7 @@ __all__ = [
     "MultiAgentConfig",
     "SafetyGovernanceConfig",
     "CognitiveImmuneConfig",
+    "GovernanceDashboardConfig",
     "OTEL_AVAILABLE",
     "PROMETHEUS_AVAILABLE",
     "DOCKER_AVAILABLE",
