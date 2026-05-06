@@ -1,15 +1,22 @@
 from __future__ import annotations
 
 import time
-from typing import Any, Dict
+from typing import Any, Dict, Optional
 
 from ..config.models import MultiAgentConfig
 from .observability import ObservabilityLayer
 from ..state import AIOState
+from .multi_agent_backend import SimulatedMultiAgentBackend, LangGraphMultiAgentBackend
 
 
 class MultiAgentCoordinator:
-    """Decomposes complex tasks across registered agents and synthesizes consensus."""
+    """Decomposes complex tasks across registered agents and synthesizes consensus.
+
+    ``dispatch`` is backed by a pluggable backend.  When
+    ``config.use_langgraph_backend`` is *True* the native LangGraph
+    supervisor/hierarchical backend is used; otherwise the legacy simulated
+    loop is used for backward compatibility.
+    """
 
     def __init__(self, config: MultiAgentConfig, observability: ObservabilityLayer) -> None:
         self.config = config
@@ -20,6 +27,10 @@ class MultiAgentCoordinator:
             "planner": {"role": "Strategy", "strengths": ["decompose", "dependencies", "schedule"]},
             "safety_officer": {"role": "Safety", "strengths": ["risk", "compliance", "boundaries"]},
         }
+        self._simulated_backend = SimulatedMultiAgentBackend(config, observability, self._registry)
+        self._langgraph_backend: Optional[LangGraphMultiAgentBackend] = None
+        if getattr(config, "use_langgraph_backend", False):
+            self._langgraph_backend = LangGraphMultiAgentBackend(config, observability, self._registry)
 
     def decompose(self, state: AIOState) -> AIOState:
         start = time.time()
@@ -40,23 +51,9 @@ class MultiAgentCoordinator:
         return state
 
     def dispatch(self, state: AIOState) -> AIOState:
-        start = time.time()
-        with self.obs.start_span("multi_agent.dispatch", state.get("trace_id")):
-            plan = state.get("coordination_plan", {})
-            subtasks = plan.get("subtasks", [])
-            outputs: Dict[str, Any] = {}
-            for st in subtasks:
-                agent = st.get("agent", "unknown")
-                confidence = round(0.7 + (0.25 if agent in self._registry else 0.0), 4)
-                outputs[st["id"]] = {
-                    "agent": agent,
-                    "confidence": confidence,
-                    "result": f"Simulated output from {agent} for {st.get('description', '')}",
-                }
-            state["agent_outputs"] = outputs
-            self.obs.record_latency("multi_agent.dispatch", time.time() - start)
-            self.obs.count_node("multi_agent.dispatch", "success")
-        return state
+        if self._langgraph_backend is not None:
+            return self._langgraph_backend.dispatch(state)
+        return self._simulated_backend.dispatch(state)
 
     def aggregate(self, state: AIOState) -> AIOState:
         start = time.time()

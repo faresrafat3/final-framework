@@ -114,6 +114,9 @@ class MultiAgentConfig(BaseModel):
     consensus_threshold: float = 0.7
     timeout_seconds: int = 30
     agents: List[str] = Field(default_factory=lambda: ["coder", "analyst", "planner", "safety_officer"])
+    use_langgraph_backend: bool = Field(
+        default_factory=lambda: os.getenv("MULTI_AGENT_USE_LANGGRAPH_BACKEND", "false").lower() == "true"
+    )
 
 
 class SafetyGovernanceConfig(BaseModel):
