@@ -44,6 +44,8 @@
 | `tests/integration/test_priority3_routing.py` | Conditional routing with `enable_priority_3` true/false | 3 |
 | `tests/failure_injection/test_chaos.py` | Memory corruption, tool timeout, Docker crash, verification failure, overflow, boundary breach, retry exhaustion | 1+2 |
 | `tests/failure_injection/test_immune_response.py` | Memory corruption quarantine, rapid failure escalation, auto-heal, threat pattern persistence | 3 |
+| `tests/integration/test_multi_agent_backend.py` | LangGraph backend dispatch, fallback, and graph integration | 4 |
+| `tests/unit/test_governance_dashboard.py` | FastAPI routes, `AuditStore` ingestion, and `SafetyGovernance` integration | 4 |
 
 ---
 
@@ -55,7 +57,7 @@
 4. ~~Plan generation is heuristic-based~~ ✅ Done — LLM-based planning available behind `ENABLE_LLM_PLANNING` flag with graceful fallback to heuristics.
 5. **Prometheus binds to all interfaces**: Configure firewall rules for production.
 6. ~~Single-file growth~~ ✅ Done — `aio_framework.py` modularized into `aio/` package with `layers/`, `config/`, `graph/` submodules (see `DECISION_LOG.md`).
-7. **Multi-agent dispatch is simulated**: Deterministic agent simulation using registry; no external agent framework dependencies.
+7. ~~Multi-agent dispatch is simulated~~ ✅ Done — real LangGraph backend available via `MULTI_AGENT_USE_LANGGRAPH_BACKEND`; simulated backend used as fallback.
 8. **Self-evolution auto-apply is bounded**: Only whitelisted config keys can be modified automatically.
 
 ---
@@ -73,8 +75,8 @@
 3. ~~LLM-based planning~~ ✅ Done — integrated behind `ENABLE_LLM_PLANNING` flag with optional `langchain-openai` / `langchain-anthropic` providers.
 4. ~~Persistent memory backend~~ ✅ Done — `InMemoryBackend`, `RedisBackend`, `PostgresBackend`, `HybridBackend` behind `MEMORY_BACKEND_TYPE` flag.
 5. ~~Cognitive immune system learning~~ ✅ Done — `ImmuneLearningEngine` with PostgreSQL storage, rolling baselines, Z-score anomaly detection behind `COGNITIVE_IMMUNE_LEARN_ENABLE` flag.
-6. **Multi-agent real dispatch**: Integrate with actual agent framework (e.g., LangGraph multi-agent) behind abstraction layer.
-7. **Governance dashboard**: Add web UI for audit trail and compliance monitoring.
+6. ~~Multi-agent real dispatch~~ ✅ Done — LangGraph supervisor/hierarchical sub-graph backend integrated behind `MultiAgentCoordinator`; simulated backend remains as fallback.
+7. ~~Governance dashboard~~ ✅ Done — FastAPI/Jinja2 dashboard with `AuditStore`, summary page, session detail, and REST API endpoints.
 
 ---
 
@@ -101,6 +103,8 @@ langchain-anthropic: >=0.1.0 (optional)
 **New dependencies added in Priority 4:**
 - `redis>=5.0.0` (optional, behind `MEMORY_BACKEND_TYPE` / `REDIS_URL` feature flags)
 - `psycopg2-binary>=2.9.0` (optional, behind `MEMORY_BACKEND_TYPE` / `POSTGRES_URL` / `COGNITIVE_IMMUNE_LEARN_ENABLE` feature flags)
+- `fastapi>=0.110.0` (optional, behind `GOVERNANCE_DASHBOARD_ENABLE`)
+- `uvicorn>=0.25.0` (optional, behind `GOVERNANCE_DASHBOARD_ENABLE`)
 
 ---
 
@@ -121,9 +125,13 @@ langchain-anthropic: >=0.1.0 (optional)
 | `COGNITIVE_IMMUNE_LEARN_ENABLE` | `false` | Enable `ImmuneLearningEngine` learned anomaly detection |
 | `LEARN_ROLLING_WINDOW` | `100` | Rolling window size for immune learning baselines (read via `CognitiveImmuneConfig`) |
 | `LEARN_Z_THRESHOLD` | `2.0` | Z-score threshold for immune anomaly detection (read via `CognitiveImmuneConfig`) |
+| `MULTI_AGENT_USE_LANGGRAPH_BACKEND` | `false` | Use native LangGraph supervisor sub-graph for multi-agent dispatch (fallback to simulated backend on error) |
+| `GOVERNANCE_DASHBOARD_ENABLE` | `false` | Enable FastAPI governance dashboard web UI for audit trails and compliance monitoring |
+| `GOVERNANCE_DASHBOARD_HOST` | `0.0.0.0` | Host address for the governance dashboard server |
+| `GOVERNANCE_DASHBOARD_PORT` | `8050` | Port for the governance dashboard server |
 
 All flags are env-driven and checked at config initialization time.
 
 ---
 
-*Last updated: Priority 4 completion*
+*Last updated: Post-PR #8 and #9 — Multi-Agent Real Dispatch + Governance Dashboard*
