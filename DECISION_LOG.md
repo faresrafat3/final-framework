@@ -33,6 +33,8 @@
 | D018 | 2024-05-06 | Modularize `aio_framework.py` into `aio/` package with `layers/`, `config/`, `graph/` submodules | Single-file core grew to ~2600 lines; maintainability, testability, and parallel development required separation | `aio_framework.py` becomes a backward-compatible re-export shim; all tests and imports continue to work without changes; new code lives in `aio/layers/`, `aio/config/`, `aio/graph/` | Active |
 | D019 | 2024-05-06 | Pluggable persistent memory backends for `MemoryBridge` (Redis/Postgres/Hybrid behind `MEMORY_BACKEND_TYPE` flag) | In-process memory is lost on restart; production deployments need durable, shared state | Adds `BaseMemoryBackend`, `InMemoryBackend`, `RedisBackend`, `PostgresBackend`, `HybridBackend` in `aio/layers/memory_backends.py`; each backend exposes `episodic`, `long_term`, `keyword_index` dicts for backward compatibility; persistent backends sync on lifecycle hooks; graceful fallback if Redis/Postgres is unreachable | Active |
 | D020 | 2024-05-06 | ImmuneLearningEngine with Z-score anomaly detection in `CognitiveImmuneSystem` behind `COGNITIVE_IMMUNE_LEARN_ENABLE` flag | Heuristic anomaly scores are static; learning from historical threat patterns improves detection accuracy and reduces false positives | Adds `ImmuneLearningEngine` in `aio/layers/immune_learning.py`; stores snapshots in PostgreSQL; computes rolling mean/std per metric; derives learned anomaly score from Z-scores with configurable threshold and window; disabled by default; gracefully degrades to heuristic-only if Postgres is unavailable | Active |
+| D021 | 2024-05-06 | LangGraph multi-agent backend abstraction | Simulated dispatch was sufficient for standalone testing but production needs real agent orchestration | Adds `LangGraphMultiAgentBackend` with supervisor sub-graph pattern; `MultiAgentCoordinator` switches backends via `use_langgraph_backend` config; automatic fallback to `SimulatedMultiAgentBackend` on any exception | Active |
+| D022 | 2024-05-06 | Optional governance dashboard module (FastAPI + Jinja2) | Safety & Governance layer produces audit trails and violations but lacks operational visibility | Adds `aio/dashboard/` package with `AuditStore`, `create_dashboard_app`, and `runner.py`; entirely optional and disabled by default (`GOVERNANCE_DASHBOARD_ENABLE=false`); no impact on core graph when disabled | Active |
 
 ---
 
@@ -44,4 +46,4 @@
 
 ---
 
-*Last updated: Priority 4 completion*
+*Last updated: Post-PR #8 and #9 — Multi-Agent Real Dispatch + Governance Dashboard*
