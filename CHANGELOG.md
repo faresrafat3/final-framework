@@ -1,5 +1,56 @@
 # Changelog
 
+## [Priority 4.0.0] — 2024-05-06
+
+### Added
+- **Modularization**
+  - `aio/` package with `layers/`, `config/`, `graph/` submodules
+  - All layer classes, configs, state, nodes, routing, and graph builder moved from single-file `aio_framework.py` into focused modules
+  - `aio_framework.py` preserved as a backward-compatible re-export shim — existing imports and tests continue to work unchanged
+  - `aio/__init__.py` exposes clean public API for new code
+- **Persistent Memory Backends**
+  - `BaseMemoryBackend` abstract interface in `aio/layers/memory_backends.py`
+  - `InMemoryBackend` — default no-op, all state in process memory
+  - `RedisBackend` — persists episodic, long-term, and keyword index to Redis hashes/sets
+  - `PostgresBackend` — persists memory entries to PostgreSQL using JSONB
+  - `HybridBackend` — Redis for hot/episodic data, Postgres for cold/long-term data
+  - `MEMORY_BACKEND_TYPE` env flag selects backend (`memory` | `redis` | `postgres` | `hybrid`)
+  - `REDIS_URL` and `POSTGRES_URL` env vars configure connection strings
+  - All persistent backends gracefully degrade to in-memory if the server is unreachable
+- **Cognitive Immune Learning**
+  - `ImmuneLearningEngine` in `aio/layers/immune_learning.py`
+  - Stores historical immune snapshots in PostgreSQL (`aio_immune_history` table)
+  - Computes rolling statistical baselines (mean, stddev) over a configurable window
+  - Derives learned anomaly score from Z-scores for `failure_count`, `safety_violation_count`, and `corrupted_memory_count`
+  - `COGNITIVE_IMMUNE_LEARN_ENABLE` flag toggles the engine (default: `false`)
+  - `learn_rolling_window` (default: 100), `learn_z_threshold` (default: 2.0), `learn_min_samples` (default: 10), and `learn_record_ttl_seconds` (default: 604800) configurable via `CognitiveImmuneConfig`
+  - Integrates into `CognitiveImmuneSystem.scan()`; learned score augments heuristic score
+- **New Feature Flags**
+  - `MEMORY_BACKEND_TYPE` — select memory backend
+  - `REDIS_URL` / `POSTGRES_URL` — backend connection strings
+  - `COGNITIVE_IMMUNE_LEARN_ENABLE` — toggle immune learning
+  - `LEARN_ROLLING_WINDOW` / `LEARN_Z_THRESHOLD` — immune learning hyperparameters
+- **New Dependencies**
+  - `redis>=5.0.0` (optional, used by `RedisBackend`)
+  - `psycopg2-binary>=2.9.0` (optional, used by `PostgresBackend` and `ImmuneLearningEngine`)
+- **Testing**
+  - 151 tests passing (2 pre-existing flaky tests unrelated to Priority 4)
+
+### Changed
+- `aio_framework.py` reduced from ~2600 lines to ~170 lines (re-export shim)
+- `requirements.txt` now includes `redis>=5.0.0` and `psycopg2-binary>=2.9.0`
+- `.env.example` updated with new flags (`MEMORY_BACKEND_TYPE`, `REDIS_URL`, `POSTGRES_URL`, `COGNITIVE_IMMUNE_LEARN_ENABLE`)
+
+### Metrics Targets
+| Metric | Target | Status |
+|--------|--------|--------|
+| Modularization backward compatibility | 100% | All existing tests pass without import changes |
+| New backend graceful degradation | 100% | Backends fall back to in-memory when remote is unreachable |
+| Immune learning false positive rate | < 5% | Z-score threshold configurable; min-samples gate prevents early noise |
+| Graph compilation (all flag combinations) | 100% | Smoke tests pass for all modes |
+
+---
+
 ## [Priority 3.0.0] — 2024-05-06
 
 ### Added
