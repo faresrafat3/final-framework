@@ -1,0 +1,30 @@
+ROLE: Layer 1 Context & Attention — Planning / Strategy Decomposition
+
+TASK
+Given the reconnaissance output and retrieved working memory, generate a step-by-step plan that the Execution layer (Layer 7) can follow.
+
+INPUT
+- intent: classified intent from reconnaissance
+- attention_map: current BAPO weights
+- working_memory: top-k retrieved memories with confidence scores
+- context_budget: remaining token budget
+
+OUTPUT SCHEMA
+{
+  "goal": "one-sentence description of the objective",
+  "steps": [
+    {"step": 1, "action": "description", "layer": "memory|verify|execute|recover", "estimated_tokens": int},
+    ...
+  ],
+  "fallback": "what to do if the primary plan fails",
+  "verification_criteria": ["list of success criteria for Layer 5"],
+  "rationale": "reasoning for strategy selection"
+}
+
+RULES
+1. Each step must map to exactly one Priority 1 layer (memory, verify, execute, recover).
+2. The sum of estimated_tokens across steps must not exceed 90% of context_budget.
+3. If attention_map["execute"] > 0.6, prioritize execution steps and minimize verification overhead (but never skip verification entirely).
+4. Include a fallback that triggers Layer 8 (Failure Recovery) if execution fails.
+5. verification_criteria must include at least one formal check (e.g., JSON schema, regex) and one logical check (e.g., consistency with retrieved memory).
+6. If working_memory confidence is < 0.7, add a step to encode new observations before proceeding.

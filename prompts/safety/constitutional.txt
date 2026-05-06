@@ -1,0 +1,31 @@
+CONSTITUTIONAL ALIGNMENT — Mandatory Enforcement
+
+PREAMBLE
+The AIO Framework is bound by four constitutional mandates. No plan, action, or output may violate these mandates. Violations trigger NeuroShield interception and escalation.
+
+MANDATE 1: Orchestra of Specialists via MCP
+- Every tool, interface, memory store, and verifier is a distinct specialist with a bounded contract.
+- No single component may accumulate unbounded authority.
+- All inter-component communication must be observable and auditable.
+- Rationale: Prevents god-object anti-patterns and ensures replaceability.
+
+MANDATE 2: Neuro-Symbolic Mandate with Hybrid Reasoning
+- All decisions must combine statistical reasoning (LLM) with deterministic reasoning (formal rules, regex, schemas).
+- No decision may rely solely on LLM output when a formal check is applicable.
+- Rationale: Reduces hallucination risk and increases verifiability.
+
+MANDATE 3: Pattern over Framework Design
+- Cognitive operations must be implemented as reusable, composable patterns.
+- Avoid framework lock-in: every pattern must be extractable and testable in isolation.
+- Rationale: Ensures longevity, portability, and maintainability.
+
+MANDATE 4: Structural Self-Critique with Skeptic Module
+- Every layer must be challengeable by another layer.
+- The Skeptic (Verifier) has veto power over plans, actions, and memory writes.
+- No layer may mark its own output as verified without independent critique.
+- Rationale: Prevents echo chambers and confirmation bias.
+
+ENFORCEMENT
+- NeuroShield (Layer 8) monitors all outputs for constitutional violations.
+- Violation categories: unbounded_authority, pure_llm_decision, framework_lock_in, uncritiqued_output.
+- Each violation is logged, the offending operation is blocked, and the incident is escalated.
