@@ -1,5 +1,76 @@
 # Changelog
 
+## [Priority 3.0.0] — 2024-05-06
+
+### Added
+- **Layer 9 — Self-Evolution**
+  - `SelfEvolutionLayer` with performance snapshotting, trend reporting, and safe config delta suggestions
+  - Bounded auto-apply: only whitelisted tunable keys can be modified automatically
+  - Post-finalize reflection pipeline (runs after every output)
+- **Layer 10 — Multi-Agent Coordination**
+  - `MultiAgentCoordinator` with task decomposition by intent (`coding`, `analysis`, `general`)
+  - Simulated agent dispatch/aggregate/synthesize using a configurable registry
+  - Consensus scoring based on output variance across simulated agents
+- **Layer 11 — Safety & Governance**
+  - `SafetyGovernance` with per-turn audit trail recording
+  - Constitutional compliance checks against four mandates
+  - Governance voting with configurable thresholds for sensitive operations
+- **Layer 12 — Cognitive Immune System**
+  - `CognitiveImmuneSystem` with anomaly scanning (failure rate, corrupted memory, threat patterns)
+  - Quarantine system that copies suspicious entries without destructive deletion
+  - Auto-heal with TTL-based threat pattern pruning
+  - Immunity status tracking (`HEALTHY`, `ALERT`, `COMPROMISED`)
+- **Graph Integration**
+  - Master feature flag `ENABLE_PRIORITY_3` with per-layer sub-flags
+  - Conditional routing: multi-agent branch before planning, governance audit gate before verification, post-finalize reflection pipeline
+  - Full backward compatibility: graph compiles and all Priority 1/2 tests pass with `ENABLE_PRIORITY_3=false`
+- **Prompts**
+  - `prompts/meta/self_evolution.txt` — performance snapshot/report/suggest/apply protocol
+  - `prompts/meta/multi_agent.txt` — agent registry, decompose/dispatch/consensus rules
+  - `prompts/meta/governance.txt` — audit checklist, constitutional mandates, voting
+  - `prompts/meta/immune.txt` — threat categories, scan/quarantine/heal protocol
+- **Testing**
+  - 33 new unit tests across Layers 9–12
+  - 9 new integration tests for Priority 3 conditional routing
+  - 6 new failure injection / immune response tests
+  - Total: 135 tests, all passing
+- **Session Continuity Docs**
+  - `SESSION_START.md` — single source of truth for context recovery
+  - `PROJECT_STATE.md` — living completion matrix and known issues
+  - `DECISION_LOG.md` — structured architectural decision registry
+
+### Metrics Targets
+| Metric | Target | Status |
+|--------|--------|--------|
+| Priority 3 backward compatibility | 100% | All existing tests pass with flag disabled |
+| New layer unit test coverage | > 90% | 33 unit + 9 integration + 6 chaos tests |
+| Graph compilation (enabled/disabled) | 100% | Smoke tests pass for both modes |
+| Immune false positive rate | < 5% | Healthy-state test confirms no false positives |
+
+---
+
+## [Priority 2.0.0] — 2024-05-05
+
+### Added
+- **Layer 3 — Planning & Anti-Myopia**
+  - `HiPlan`: hierarchical task decomposition with configurable max depth
+  - `FLARE`: lookahead planning with horizon window
+  - `PPA`: pitfall pattern analysis before execution
+  - `SPIRAL`: symbolic MCTS with configurable simulations
+  - `VMAO`: DAG-based plan decomposition with replanning
+- **Layer 4 — Proactive Curiosity**
+  - `CuriosityEngine`: novelty detection, information gap tracking, intrinsic reward scoring
+- **Layer 6 — Tool-Use Optimization**
+  - `G-STEP`: tool necessity scoring with configurable threshold
+  - `HDPO`: accuracy/efficiency weighted policy optimization
+  - `JTPRO`: iterative prompt optimization
+- **Graph Integration**
+  - Planning nodes integrated into the StateGraph flow
+  - Curiosity gate before plan generation
+  - Tool optimizer between verification and execution
+
+---
+
 ## [Priority 1.0.0] — 2024-05-05
 
 ### Added
