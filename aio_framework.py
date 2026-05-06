@@ -52,6 +52,7 @@ from aio import (
     SafetyGovernanceConfig,
     CognitiveImmuneSystem,
     CognitiveImmuneConfig,
+    ImmuneLearningEngine,
     node_context_ingest,
     node_context_sculpt,
     node_memory_retrieve,

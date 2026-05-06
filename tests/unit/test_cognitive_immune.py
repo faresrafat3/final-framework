@@ -1,4 +1,5 @@
 import pytest
+from unittest.mock import MagicMock, patch
 
 from aio_framework import (
     CognitiveImmuneSystem,
@@ -99,3 +100,89 @@ class TestCognitiveImmuneSystem:
         state = make_initial_state("test")
         state = immune_layer.detect_threats(state)
         assert "old" not in immune_layer._threat_db
+
+    def test_learned_no_op_when_disabled(self, immune_layer):
+        state = make_initial_state("test")
+        state = immune_layer.scan(state)
+        assert state.get("learned_anomaly_score") is None
+        assert immune_layer._learning is None
+
+    def test_learned_no_op_when_postgres_unavailable(self):
+        obs = ObservabilityLayer(ObservabilityConfig(log_level="DEBUG", prometheus_port=0))
+        cfg = CognitiveImmuneConfig(enable=True, learn_enable=True)
+        layer = CognitiveImmuneSystem(cfg, obs)
+        state = make_initial_state("test")
+        state = layer.scan(state)
+        assert state.get("learned_anomaly_score") == 0.0
+        layer.close()
+
+    def test_learned_zscore_boosts_anomaly(self):
+        obs = ObservabilityLayer(ObservabilityConfig(log_level="DEBUG", prometheus_port=0))
+        cfg = CognitiveImmuneConfig(
+            enable=True,
+            learn_enable=True,
+            learn_z_threshold=2.0,
+            learn_min_samples=5,
+            learn_rolling_window=100,
+        )
+        layer = CognitiveImmuneSystem(cfg, obs)
+
+        # Build a stable baseline
+        baseline = []
+        for _ in range(10):
+            baseline.append((0, 0, 0))
+
+        def _make_cursor(rows):
+            cur = MagicMock()
+            cur.fetchone.return_value = (0.0, 0.0, len(rows))
+            return cur
+
+        def _make_conn(rows):
+            conn = MagicMock()
+            conn.cursor.return_value.__enter__ = lambda s: _make_cursor(rows)
+            conn.cursor.return_value.__exit__ = lambda s, *a: None
+            return conn
+
+        mock_conn = _make_conn(baseline)
+        with patch("psycopg2.connect", return_value=mock_conn):
+            with patch.object(layer._learning, "_conn", mock_conn):
+                state = make_initial_state("test")
+                state["failure_count"] = 10
+                state["safety_violations"] = []
+                state["working_memory"] = []
+                state = layer.scan(state)
+                assert state["learned_anomaly_score"] > 0.0
+                assert state["anomaly_score"] >= state["learned_anomaly_score"]
+        layer.close()
+
+    def test_learned_insufficient_samples_returns_zero(self):
+        obs = ObservabilityLayer(ObservabilityConfig(log_level="DEBUG", prometheus_port=0))
+        cfg = CognitiveImmuneConfig(
+            enable=True,
+            learn_enable=True,
+            learn_min_samples=20,
+            learn_rolling_window=100,
+        )
+        layer = CognitiveImmuneSystem(cfg, obs)
+
+        def _make_cursor():
+            cur = MagicMock()
+            cur.fetchone.return_value = (0.0, 0.0, 5)
+            return cur
+
+        def _make_conn():
+            conn = MagicMock()
+            conn.cursor.return_value.__enter__ = lambda s: _make_cursor()
+            conn.cursor.return_value.__exit__ = lambda s, *a: None
+            return conn
+
+        mock_conn = _make_conn()
+        with patch("psycopg2.connect", return_value=mock_conn):
+            with patch.object(layer._learning, "_conn", mock_conn):
+                state = make_initial_state("test")
+                state["failure_count"] = 10
+                state["safety_violations"] = []
+                state["working_memory"] = []
+                state = layer.scan(state)
+                assert state["learned_anomaly_score"] == 0.0
+        layer.close()

@@ -73,6 +73,7 @@ from .layers.self_evolution import SelfEvolutionLayer
 from .layers.multi_agent import MultiAgentCoordinator
 from .layers.safety_governance import SafetyGovernance
 from .layers.cognitive_immune import CognitiveImmuneSystem
+from .layers.immune_learning import ImmuneLearningEngine
 from .state import AIOState, make_initial_state
 from .graph.builder import build_aio_graph
 from .graph.nodes import (
@@ -203,6 +204,7 @@ __all__ = [
     "MultiAgentCoordinator",
     "SafetyGovernance",
     "CognitiveImmuneSystem",
+    "ImmuneLearningEngine",
     "AIOState",
     "make_initial_state",
     "build_aio_graph",
