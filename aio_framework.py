@@ -84,6 +84,13 @@ except Exception:  # pragma: no cover
 
 LANGCHAIN_CHAT_AVAILABLE = LANGCHAIN_OPENAI_AVAILABLE or LANGCHAIN_ANTHROPIC_AVAILABLE
 
+try:
+    import redis as redis_module
+    REDIS_AVAILABLE = True
+except Exception:  # pragma: no cover
+    REDIS_AVAILABLE = False
+    redis_module = None  # type: ignore[misc,assignment]
+
 
 # ---------------------------------------------------------------------------
 # Constants & Configuration
@@ -103,6 +110,12 @@ LLM_PLANNER_PROVIDER = os.getenv("LLM_PLANNER_PROVIDER", "openai")
 LLM_PLANNER_MODEL = os.getenv("LLM_PLANNER_MODEL", "gpt-4o")
 LLM_PLANNER_TEMPERATURE = float(os.getenv("LLM_PLANNER_TEMPERATURE", "0.2"))
 LLM_PLANNER_MAX_TOKENS = int(os.getenv("LLM_PLANNER_MAX_TOKENS", "1024"))
+ENABLE_REDIS_MEMORY = os.getenv("ENABLE_REDIS_MEMORY", "false").lower() == "true"
+REDIS_HOST = os.getenv("REDIS_HOST", "localhost")
+REDIS_PORT = int(os.getenv("REDIS_PORT", "6379"))
+REDIS_DB = int(os.getenv("REDIS_DB", "0"))
+REDIS_PASSWORD = os.getenv("REDIS_PASSWORD", "")
+REDIS_KEY_PREFIX = os.getenv("REDIS_KEY_PREFIX", "aio:memory")
 
 
 # ---------------------------------------------------------------------------
@@ -133,6 +146,12 @@ class MemoryConfig(BaseModel):
     forget_ttl_seconds: int = 86400
     use_real_embeddings: bool = Field(default_factory=lambda: os.getenv("ENABLE_REAL_EMBEDDINGS", "false").lower() == "true")
     embedding_model_name: str = Field(default="all-MiniLM-L6-v2")
+    enable_redis: bool = Field(default_factory=lambda: os.getenv("ENABLE_REDIS_MEMORY", "false").lower() == "true")
+    redis_host: str = Field(default_factory=lambda: os.getenv("REDIS_HOST", "localhost"))
+    redis_port: int = Field(default_factory=lambda: int(os.getenv("REDIS_PORT", "6379")))
+    redis_db: int = Field(default_factory=lambda: int(os.getenv("REDIS_DB", "0")))
+    redis_password: str = Field(default_factory=lambda: os.getenv("REDIS_PASSWORD", ""))
+    redis_key_prefix: str = Field(default_factory=lambda: os.getenv("REDIS_KEY_PREFIX", "aio:memory"))
 
 
 class PlanningConfig(BaseModel):
@@ -570,6 +589,61 @@ class ContextManager:
 # Layer 2 — Dual-Memory Bridge
 # ---------------------------------------------------------------------------
 
+class RedisMemoryBackend:
+    """Lightweight Redis persistence layer for MemoryBridge."""
+
+    def __init__(self, config: MemoryConfig, observability):
+        self.config = config
+        self.obs = observability
+        self._client = None
+        if not config.enable_redis or not REDIS_AVAILABLE or redis_module is None:
+            return
+        try:
+            self._client = redis_module.Redis(
+                host=config.redis_host,
+                port=config.redis_port,
+                db=config.redis_db,
+                password=config.redis_password or None,
+                socket_connect_timeout=5,
+                socket_timeout=5,
+                decode_responses=True,
+            )
+            self._client.ping()
+        except Exception as exc:  # pragma: no cover
+            self.obs.log(logging.WARNING, f"Redis connection failed: {exc}. Falling back to in-memory store.")
+            self._client = None
+
+    def _key(self, suffix: str) -> str:
+        return f"{self.config.redis_key_prefix}:{suffix}"
+
+    def load(self) -> Tuple[Dict[str, Dict[str, Any]], Dict[str, Dict[str, Any]], Dict[str, List[str]]]:
+        if self._client is None:
+            return {}, {}, {}
+        try:
+            raw_episodic = self._client.get(self._key("episodic"))
+            raw_long_term = self._client.get(self._key("long_term"))
+            raw_keyword = self._client.get(self._key("keyword_index"))
+            episodic = json.loads(raw_episodic) if raw_episodic else {}
+            long_term = json.loads(raw_long_term) if raw_long_term else {}
+            keyword_index = json.loads(raw_keyword) if raw_keyword else {}
+            return episodic, long_term, keyword_index
+        except Exception as exc:  # pragma: no cover
+            self.obs.log(logging.WARNING, f"Redis load failed: {exc}. Using empty in-memory stores.")
+            self._client = None
+            return {}, {}, {}
+
+    def save(self, episodic: Dict[str, Any], long_term: Dict[str, Any], keyword_index: Dict[str, Any]) -> None:
+        if self._client is None:
+            return
+        try:
+            self._client.set(self._key("episodic"), json.dumps(episodic))
+            self._client.set(self._key("long_term"), json.dumps(long_term))
+            self._client.set(self._key("keyword_index"), json.dumps(keyword_index))
+        except Exception as exc:  # pragma: no cover
+            self.obs.log(logging.WARNING, f"Redis save failed: {exc}. Disabling Redis persistence for this session.")
+            self._client = None
+
+
 class MemoryBridge:
     """Implements encode-verify-store-consolidate-retrieve-forget lifecycle."""
 
@@ -585,6 +659,23 @@ class MemoryBridge:
                 self._embedding_model = SentenceTransformer(config.embedding_model_name)
             except Exception as exc:  # pragma: no cover
                 logging.warning("Failed to load embedding model '%s': %s. Falling back to pseudo-embeddings.", config.embedding_model_name, exc)
+        self._redis = RedisMemoryBackend(config, observability)
+        if config.enable_redis and REDIS_AVAILABLE:
+            try:
+                loaded = self._redis.load()
+                self._episodic, self._long_term, self._keyword_index = loaded
+            except Exception as exc:  # pragma: no cover
+                self.obs.log(logging.WARNING, f"Redis hydration failed: {exc}. Starting with empty in-memory stores.")
+                self._redis._client = None
+
+    def _persist(self) -> None:
+        if self._redis._client is None:
+            return
+        try:
+            self._redis.save(self._episodic, self._long_term, self._keyword_index)
+        except Exception as exc:  # pragma: no cover
+            self.obs.log(logging.WARNING, f"MemoryBridge _persist failed: {exc}. Disabling Redis persistence.")
+            self._redis._client = None
 
     def _hash(self, content: str) -> str:
         return hashlib.sha256(content.encode()).hexdigest()[:16]
@@ -646,6 +737,7 @@ class MemoryBridge:
                 self._index_keywords(eid, content)
             self.obs.record_latency("memory.encode", time.time() - start)
             self.obs.count_node("memory.encode", "success")
+        self._persist()
         return state
 
     def verify(self, state: AIOState) -> AIOState:
@@ -664,6 +756,7 @@ class MemoryBridge:
                     entry["verification_passed"] = True
             self.obs.record_latency("memory.verify", time.time() - start)
             self.obs.count_node("memory.verify", "success")
+        self._persist()
         return state
 
     def store(self, state: AIOState) -> AIOState:
@@ -691,6 +784,7 @@ class MemoryBridge:
             state["long_term_memory"] = list(self._long_term.values())
             self.obs.record_latency("memory.consolidate", time.time() - start)
             self.obs.count_node("memory.consolidate", "success")
+        self._persist()
         return state
 
     def retrieve(self, state: AIOState) -> AIOState:
@@ -743,6 +837,7 @@ class MemoryBridge:
                                 lst.remove(eid)
             self.obs.record_latency("memory.forget", time.time() - start)
             self.obs.count_node("memory.forget", "success")
+        self._persist()
         return state
 
 

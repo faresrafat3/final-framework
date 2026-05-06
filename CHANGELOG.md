@@ -1,5 +1,33 @@
 # Changelog
 
+## [Priority 4.x.x] — Next
+
+### Added
+- **Real Embeddings Integration**
+  - `ENABLE_REAL_EMBEDDINGS` flag gates `sentence-transformers` usage in `MemoryBridge`
+  - Graceful fallback to deterministic pseudo-embeddings when disabled or unavailable
+- **LLM Planning Integration**
+  - `ENABLE_LLM_PLANNING` flag gates optional `LLMPlanner` with `langchain-openai` / `langchain-anthropic` providers
+  - Intercepts base plan, HiPlan, FLARE, and PPA; falls back to heuristics on any failure
+- **Redis Memory Persistence**
+  - `ENABLE_REDIS_MEMORY` flag gates optional Redis-backed persistence for `MemoryBridge`
+  - `RedisMemoryBackend` hydrates `_episodic`, `_long_term`, `_keyword_index` on init
+  - Full-dict JSON snapshot persisted after every mutating operation (`encode`, `verify`, `consolidate`, `forget`)
+  - Graceful degradation to in-memory-only on any Redis connection or runtime error
+  - Configurable via `REDIS_HOST`, `REDIS_PORT`, `REDIS_DB`, `REDIS_PASSWORD`, `REDIS_KEY_PREFIX`
+- **Infrastructure**
+  - Added `redis:7-alpine` service to `docker-compose.yml` on `aio-net`
+  - Added `redis>=5.0.0` to `requirements.txt`
+
+### Metrics Targets
+| Metric | Target | Status |
+|--------|--------|--------|
+| Backward compatibility (flags off) | 100% | All existing tests pass unchanged |
+| Redis unit test coverage | 4 tests | encode persist, load init, init fallback, runtime fallback |
+| New feature flag surface | 3 flags | `ENABLE_REAL_EMBEDDINGS`, `ENABLE_LLM_PLANNING`, `ENABLE_REDIS_MEMORY` |
+
+---
+
 ## [Priority 3.0.0] — 2024-05-06
 
 ### Added

@@ -75,6 +75,19 @@ services:
     depends_on:
       - otel-collector
 
+  redis:
+    image: redis:7-alpine
+    container_name: aio-redis
+    ports:
+      - "6379:6379"
+    networks:
+      - aio-net
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+
   aio-framework:
     build:
       context: .
@@ -85,6 +98,7 @@ services:
     environment:
       - OTEL_EXPORTER_OTLP_ENDPOINT=http://otel-collector:4317
       - PROMETHEUS_PORT=9091
+      - REDIS_HOST=redis
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock:ro
     ports:
@@ -96,6 +110,8 @@ services:
       otel-collector:
         condition: service_healthy
       prometheus:
+        condition: service_healthy
+      redis:
         condition: service_healthy
     healthcheck:
       test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/health')"]

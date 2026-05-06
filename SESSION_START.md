@@ -11,7 +11,7 @@
 - **Language**: Python 3.12+
 - **Core Framework**: LangGraph StateGraph
 - **Architecture**: 13-layer cognitive stack (Layers 0–12)
-- **Single-file core**: `aio_framework.py` (~2600 lines)
+- **Single-file core**: `aio_framework.py` (~2700 lines)
 
 ---
 
@@ -56,6 +56,7 @@
 | Priority 1 | 0, 1, 2, 5, 7, 8 | Complete | Unit + Integration + Chaos |
 | Priority 2 | 3, 4, 6 | Complete | Unit + Integration + E2E |
 | Priority 3 | 9, 10, 11, 12 | Complete | Unit + Integration + Immune |
+| Priority 4 | Real Embeddings, LLM Planning, Redis Memory | Complete | Unit + mocked fallback for each |
 
 ---
 
@@ -63,7 +64,7 @@
 
 | File | Purpose | Approx Lines |
 |------|---------|-------------|
-| `aio_framework.py` | Single-file core: all configs, state, layers, nodes, routing, graph builder | ~2600 |
+| `aio_framework.py` | Single-file core: all configs, state, layers, nodes, routing, graph builder | ~2700 |
 | `project_blueprint.md` | Full 13-layer architectural spec with contracts and data flows | ~350 |
 | `CHANGELOG.md` | Release notes per priority with metrics targets | ~120 |
 | `README.md` | Quick start, project structure, configuration reference | ~130 |
@@ -74,11 +75,11 @@
 | `prompts/cognitive/*.txt` | Recon, plan, prove prompts | 3 files |
 | `prompts/safety/*.txt` | Constitutional mandates, boundary protocol | 2 files |
 | `prompts/meta/*.txt` | Self-evolution, multi-agent, governance, immune prompts | 4 files |
-| `tests/unit/test_*.py` | Layer-isolated unit tests (10 files) | — |
+| `tests/unit/test_*.py` | Layer-isolated unit tests (10+ files) | — |
 | `tests/integration/test_*.py` | Cross-layer routing and E2E tests | 3 files |
 | `tests/failure_injection/test_*.py` | Chaos and immune response tests | 2 files |
-| `docker-compose.yml` | Observability stack (OTel, Prometheus, Grafana, Jaeger) | — |
-| `requirements.txt` | Python dependencies (no new deps for Priority 3) | ~10 packages |
+| `docker-compose.yml` | Observability stack + Redis + framework service | — |
+| `requirements.txt` | Python dependencies (optional deps behind feature flags) | ~12 packages |
 
 ---
 
@@ -99,7 +100,7 @@ pytest tests/failure_injection/ -v
 # Run a single task
 python aio_framework.py "echo hello world"
 
-# Start observability stack
+# Start observability stack (includes Redis)
 docker-compose up -d
 
 # Graph compilation smoke test (backward compat)
@@ -148,6 +149,7 @@ If context is lost between sessions:
 | Debug routing | `build_aio_graph()` in `aio_framework.py` + integration tests |
 | Tune safety/governance | Layer 11 (`SafetyGovernance`) + `prompts/meta/governance.txt` |
 | Tune immune system | Layer 12 (`CognitiveImmuneSystem`) + `prompts/meta/immune.txt` |
+| Tune memory / Redis persistence | Layer 2 (`MemoryBridge` + `RedisMemoryBackend`) + `tests/unit/test_memory_bridge.py` |
 
 ---
 
@@ -155,11 +157,11 @@ If context is lost between sessions:
 
 - **Single-file core**: All layer classes live in `aio_framework.py`. Future modularization is documented in `DECISION_LOG.md`.
 - **Additive only**: Never remove existing state fields from `AIOState`. Use `total=False` TypedDict.
-- **Feature flags**: All new functionality is gated by env-driven flags (e.g., `ENABLE_PRIORITY_3`).
+- **Feature flags**: All new functionality is gated by env-driven flags (e.g., `ENABLE_PRIORITY_3`, `ENABLE_REDIS_MEMORY`).
 - **Observability**: Every layer method wraps logic in `self.obs.start_span()` and calls `record_latency()` + `count_node()`.
-- **Graceful degradation**: All external dependencies are optional with feature flags (`OTEL_AVAILABLE`, etc.).
-- **No new dependencies**: Priority 3 added zero new Python packages.
+- **Graceful degradation**: All external dependencies are optional with feature flags (`OTEL_AVAILABLE`, `REDIS_AVAILABLE`, etc.).
+- **New dependencies are optional**: `sentence-transformers` and `redis` are added as optional packages gated by feature flags.
 
 ---
 
-*Last updated: Priority 3 completion*
+*Last updated: Priority 4 completion (Redis Memory, Real Embeddings, LLM Planning)*

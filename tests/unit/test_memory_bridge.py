@@ -170,3 +170,106 @@ class TestMemoryBridge:
             vec = mem._embed("hello")
             assert mem._embedding_model is None
             assert abs(sum(x * x for x in vec) - 1.0) < 1e-6
+
+
+class TestRedisMemory:
+    def test_redis_persistence_on_encode(self):
+        obs = ObservabilityLayer(ObservabilityConfig(log_level="DEBUG", prometheus_port=0))
+        mock_redis = MagicMock()
+        mock_redis.get.return_value = None
+        mock_redis.ping.return_value = True
+        with patch.dict("aio_framework.__dict__", {"redis_module": MagicMock(Redis=lambda **kwargs: mock_redis), "REDIS_AVAILABLE": True}):
+            cfg = MemoryConfig(
+                epiphany_ttl_seconds=1,
+                consolidation_batch_size=2,
+                retrieval_top_k=3,
+                importance_threshold=0.3,
+                forget_ttl_seconds=2,
+                enable_redis=True,
+            )
+            mem = MemoryBridge(cfg, obs)
+            state = make_initial_state("hello world")
+            state["context_window"] = [{"role": "user", "content": "hello world", "turn": 1}]
+            mem.encode(state)
+            assert mock_redis.set.call_count >= 3
+            args_list = [call.args for call in mock_redis.set.call_args_list]
+            keys = {a[0] for a in args_list}
+            assert "aio:memory:episodic" in keys
+            assert "aio:memory:long_term" in keys
+            assert "aio:memory:keyword_index" in keys
+
+    def test_redis_load_on_init(self):
+        obs = ObservabilityLayer(ObservabilityConfig(log_level="DEBUG", prometheus_port=0))
+        mock_redis = MagicMock()
+        mock_redis.ping.return_value = True
+        mock_redis.get.side_effect = lambda key: {
+            "aio:memory:episodic": '{"e1": {"id": "e1", "content": "loaded"}}',
+            "aio:memory:long_term": '{"l1": {"id": "l1", "content": "lt"}}',
+            "aio:memory:keyword_index": '{"loaded": ["e1"]}',
+        }.get(key)
+        with patch.dict("aio_framework.__dict__", {"redis_module": MagicMock(Redis=lambda **kwargs: mock_redis), "REDIS_AVAILABLE": True}):
+            cfg = MemoryConfig(
+                epiphany_ttl_seconds=1,
+                consolidation_batch_size=2,
+                retrieval_top_k=3,
+                importance_threshold=0.3,
+                forget_ttl_seconds=2,
+                enable_redis=True,
+            )
+            mem = MemoryBridge(cfg, obs)
+            assert mem._episodic.get("e1", {}).get("content") == "loaded"
+            assert mem._long_term.get("l1", {}).get("content") == "lt"
+            assert mem._keyword_index.get("loaded") == ["e1"]
+
+    def test_redis_init_failure_fallback(self):
+        obs = ObservabilityLayer(ObservabilityConfig(log_level="DEBUG", prometheus_port=0))
+        def _raise(*args, **kwargs):
+            raise ConnectionError("redis down")
+        with patch.dict("aio_framework.__dict__", {"redis_module": MagicMock(Redis=_raise), "REDIS_AVAILABLE": True}):
+            cfg = MemoryConfig(
+                epiphany_ttl_seconds=1,
+                consolidation_batch_size=2,
+                retrieval_top_k=3,
+                importance_threshold=0.3,
+                forget_ttl_seconds=2,
+                enable_redis=True,
+            )
+            mem = MemoryBridge(cfg, obs)
+            assert mem._episodic == {}
+            assert mem._long_term == {}
+            assert mem._keyword_index == {}
+            assert mem._redis._client is None
+
+    def test_redis_runtime_failure_graceful(self):
+        obs = ObservabilityLayer(ObservabilityConfig(log_level="DEBUG", prometheus_port=0))
+        mock_redis = MagicMock()
+        mock_redis.ping.return_value = True
+        mock_redis.get.return_value = None
+        call_count = 0
+        def _set(*args, **kwargs):
+            nonlocal call_count
+            call_count += 1
+            if call_count > 2:
+                raise ConnectionError("redis write failed")
+        mock_redis.set.side_effect = _set
+        with patch.dict("aio_framework.__dict__", {"redis_module": MagicMock(Redis=lambda **kwargs: mock_redis), "REDIS_AVAILABLE": True}):
+            cfg = MemoryConfig(
+                epiphany_ttl_seconds=1,
+                consolidation_batch_size=2,
+                retrieval_top_k=3,
+                importance_threshold=0.3,
+                forget_ttl_seconds=2,
+                enable_redis=True,
+            )
+            mem = MemoryBridge(cfg, obs)
+            # First encode should succeed and persist
+            state = make_initial_state("first")
+            state["context_window"] = [{"role": "user", "content": "first", "turn": 1}]
+            mem.encode(state)
+            assert len(mem._episodic) == 1
+            # Second encode will trigger _persist again; after Redis write fails, client is nulled
+            state2 = make_initial_state("second")
+            state2["context_window"] = [{"role": "user", "content": "second", "turn": 2}]
+            mem.encode(state2)
+            assert len(mem._episodic) == 2
+            assert mem._redis._client is None
