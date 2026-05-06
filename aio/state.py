@@ -62,6 +62,7 @@ class AIOState(TypedDict, total=False):
     quarantined_ids: Optional[List[str]]
     healing_actions: Optional[List[Dict[str, Any]]]
     threat_patterns_detected: Optional[List[Dict[str, Any]]]
+    learned_anomaly_score: Optional[float]
 
 
 def make_initial_state(raw_input: str = "", session_id: Optional[str] = None) -> AIOState:
@@ -119,4 +120,5 @@ def make_initial_state(raw_input: str = "", session_id: Optional[str] = None) ->
         "quarantined_ids": None,
         "healing_actions": None,
         "threat_patterns_detected": None,
-    }
+        "learned_anomaly_score": None,
+        }

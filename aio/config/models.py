@@ -129,6 +129,12 @@ class CognitiveImmuneConfig(BaseModel):
     auto_quarantine: bool = True
     auto_heal: bool = True
     pattern_db_ttl_seconds: int = 3600
+    learn_enable: bool = Field(default_factory=lambda: os.getenv("COGNITIVE_IMMUNE_LEARN_ENABLE", "false").lower() == "true")
+    learn_postgres_url: str = Field(default_factory=lambda: os.getenv("POSTGRES_URL", "postgresql://localhost/aio"))
+    learn_rolling_window: int = 100
+    learn_z_threshold: float = 2.0
+    learn_min_samples: int = 10
+    learn_record_ttl_seconds: int = 604800
 
 
 class AIOConfig(BaseModel):

@@ -16,6 +16,12 @@ class CognitiveImmuneSystem:
         self.obs = observability
         self._threat_db: Dict[str, Dict[str, Any]] = {}
         self._quarantine_store: Dict[str, Dict[str, Any]] = {}
+        if config.learn_enable:
+            from .immune_learning import ImmuneLearningEngine
+
+            self._learning = ImmuneLearningEngine(config, observability)
+        else:
+            self._learning = None
 
     def scan(self, state: AIOState) -> AIOState:
         start = time.time()
@@ -33,10 +39,21 @@ class CognitiveImmuneSystem:
             corrupted = sum(1 for m in wm if m is None or not isinstance(m, dict) or m.get("content") is None)
             if corrupted > 0:
                 score += 0.2
+            score = round(min(1.0, score), 4)
+            if self._learning is not None:
+                state["anomaly_score"] = score
+                self._learning.record(state)
+                learned = self._learning.compute_anomaly_score(state)
+                score = max(score, learned)
+                state["learned_anomaly_score"] = round(learned, 4)
             state["anomaly_score"] = round(min(1.0, score), 4)
             self.obs.record_latency("immune.scan", time.time() - start)
             self.obs.count_node("immune.scan", "success")
         return state
+
+    def close(self) -> None:
+        if self._learning is not None:
+            self._learning.close()
 
     def detect_threats(self, state: AIOState) -> AIOState:
         start = time.time()
