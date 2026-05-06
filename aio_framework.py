@@ -70,6 +70,20 @@ try:
 except Exception:  # pragma: no cover
     SENTENCE_TRANSFORMERS_AVAILABLE = False
 
+try:
+    from langchain_openai import ChatOpenAI
+    LANGCHAIN_OPENAI_AVAILABLE = True
+except Exception:  # pragma: no cover
+    LANGCHAIN_OPENAI_AVAILABLE = False
+
+try:
+    from langchain_anthropic import ChatAnthropic
+    LANGCHAIN_ANTHROPIC_AVAILABLE = True
+except Exception:  # pragma: no cover
+    LANGCHAIN_ANTHROPIC_AVAILABLE = False
+
+LANGCHAIN_CHAT_AVAILABLE = LANGCHAIN_OPENAI_AVAILABLE or LANGCHAIN_ANTHROPIC_AVAILABLE
+
 
 # ---------------------------------------------------------------------------
 # Constants & Configuration
@@ -84,6 +98,11 @@ DEFAULT_LOG_LEVEL = os.getenv("AIO_LOG_LEVEL", "INFO").upper()
 DEFAULT_SAFETY_MODE = os.getenv("SAFETY_MODE", "strict")
 DEFAULT_DOCKER_SOCKET = os.getenv("DOCKER_SOCKET_PATH", "unix:///var/run/docker.sock")
 DEFAULT_MEMBRIDGE_CONN = os.getenv("MEMBRIDGE_CONNECTION_STRING", "memory://localhost")
+ENABLE_LLM_PLANNING = os.getenv("ENABLE_LLM_PLANNING", "false").lower() == "true"
+LLM_PLANNER_PROVIDER = os.getenv("LLM_PLANNER_PROVIDER", "openai")
+LLM_PLANNER_MODEL = os.getenv("LLM_PLANNER_MODEL", "gpt-4o")
+LLM_PLANNER_TEMPERATURE = float(os.getenv("LLM_PLANNER_TEMPERATURE", "0.2"))
+LLM_PLANNER_MAX_TOKENS = int(os.getenv("LLM_PLANNER_MAX_TOKENS", "1024"))
 
 
 # ---------------------------------------------------------------------------
@@ -122,6 +141,11 @@ class PlanningConfig(BaseModel):
     spiral_simulations: int = 10
     mars_reflection_depth: int = 1
     vmao_max_replans: int = 3
+    enable_llm_planning: bool = Field(default_factory=lambda: os.getenv("ENABLE_LLM_PLANNING", "false").lower() == "true")
+    llm_planner_provider: str = Field(default_factory=lambda: os.getenv("LLM_PLANNER_PROVIDER", "openai"))
+    llm_planner_model: str = Field(default_factory=lambda: os.getenv("LLM_PLANNER_MODEL", "gpt-4o"))
+    llm_planner_temperature: float = Field(default_factory=lambda: float(os.getenv("LLM_PLANNER_TEMPERATURE", "0.2")))
+    llm_planner_max_tokens: int = Field(default_factory=lambda: int(os.getenv("LLM_PLANNER_MAX_TOKENS", "1024")))
 
 
 class CuriosityConfig(BaseModel):
@@ -943,6 +967,134 @@ class VMAOPlanner:
         return dag
 
 
+class LLMPlanner:
+    """Optional LLM-powered planner behind a feature flag and optional dependency guard."""
+
+    def __init__(self, config: PlanningConfig, observability: ObservabilityLayer) -> None:
+        self.config = config
+        self.obs = observability
+        self._model: Optional[Any] = None
+
+    def _get_chat_model(self) -> Optional[Any]:
+        if not LANGCHAIN_CHAT_AVAILABLE:
+            return None
+        if self._model is not None:
+            return self._model
+        provider = self.config.llm_planner_provider
+        if provider == "openai" and LANGCHAIN_OPENAI_AVAILABLE:
+            key = os.getenv("OPENAI_API_KEY")
+            if not key:
+                self.obs.log(logging.WARNING, "LLMPlanner: OPENAI_API_KEY not set")
+                return None
+            self._model = ChatOpenAI(
+                model=self.config.llm_planner_model,
+                temperature=self.config.llm_planner_temperature,
+                max_tokens=self.config.llm_planner_max_tokens,
+                api_key=key,
+            )
+            return self._model
+        if provider == "anthropic" and LANGCHAIN_ANTHROPIC_AVAILABLE:
+            key = os.getenv("ANTHROPIC_API_KEY")
+            if not key:
+                self.obs.log(logging.WARNING, "LLMPlanner: ANTHROPIC_API_KEY not set")
+                return None
+            self._model = ChatAnthropic(
+                model=self.config.llm_planner_model,
+                temperature=self.config.llm_planner_temperature,
+                max_tokens=self.config.llm_planner_max_tokens,
+                api_key=key,
+            )
+            return self._model
+        return None
+
+    def _call_llm(self, prompt: str, span_name: str) -> str:
+        model = self._get_chat_model()
+        if model is None:
+            raise RuntimeError("LLM chat model not available")
+        start = time.time()
+        with self.obs.start_span(span_name):
+            try:
+                response = model.invoke(prompt)
+                text = str(response.content if hasattr(response, "content") else response)
+                self.obs.record_latency(span_name, time.time() - start)
+                self.obs.count_node(span_name, "success")
+                return text
+            except Exception as exc:
+                self.obs.record_latency(span_name, time.time() - start)
+                self.obs.count_node(span_name, "failure")
+                self.obs.log(logging.WARNING, f"LLMPlanner {span_name} failed: {exc}")
+                raise
+
+    @staticmethod
+    def _parse_json(text: str) -> Dict[str, Any]:
+        cleaned = re.sub(r"^```(?:json)?\s*|\s*```$", "", text.strip(), flags=re.MULTILINE)
+        try:
+            return json.loads(cleaned)
+        except Exception:
+            return {}
+
+    def generate_plan(self, state: AIOState) -> str:
+        intent = state.get("intent", "general")
+        memory = state.get("working_memory", [])
+        snippets = " | ".join(str(m.get("content", ""))[:200] for m in memory[:3])
+        prompt = (
+            f"You are a planning assistant. Given the intent '{intent}' and recent memory snippets: [{snippets}],\n"
+            "produce a concise, numbered step-by-step plan (max 5 steps). "
+            "Return only the plan text with no extra commentary."
+        )
+        return self._call_llm(prompt, "planning.llm_generate")
+
+    def decompose_tasks(self, state: AIOState) -> Dict[str, Any]:
+        intent = state.get("intent", "general")
+        plan = state.get("plan", "")
+        prompt = (
+            f"You are a hierarchical planning assistant. Decompose this plan into JSON with keys:"
+            f"  goal: string"
+            f"  subgoals: list of {{id, description, actions: [{{id, description}}]}}"
+            f"Intent: {intent}"
+            f"Plan: {plan}"
+            f"Return only valid JSON inside a markdown code block if needed."
+        )
+        text = self._call_llm(prompt, "planning.llm_decompose")
+        parsed = self._parse_json(text)
+        if not parsed or "goal" not in parsed:
+            raise RuntimeError("LLM decompose returned invalid JSON")
+        return parsed
+
+    def lookahead_analysis(self, state: AIOState) -> Dict[str, Any]:
+        horizon = self.config.flare_horizon
+        plan = state.get("plan", "")
+        prompt = (
+            f"You are a risk-aware lookahead assistant. Analyze this plan over a horizon of {horizon} steps."
+            f"Return JSON with keys: horizon (int), trajectory_scores (list of floats), recommended_action_index (int), risk_assessment (string)."
+            f"Plan: {plan}"
+            f"Return only valid JSON inside a markdown code block if needed."
+        )
+        text = self._call_llm(prompt, "planning.llm_lookahead")
+        parsed = self._parse_json(text)
+        required = {"horizon", "trajectory_scores", "recommended_action_index", "risk_assessment"}
+        if not required.issubset(parsed.keys()):
+            raise RuntimeError("LLM lookahead returned incomplete JSON")
+        return parsed
+
+    def pitfall_analysis(self, state: AIOState) -> Dict[str, Any]:
+        plan = state.get("plan", "")
+        prompt = (
+            f"You are a safety reviewer. Review this plan and return JSON with keys:"
+            f"  pitfalls_detected: list of {{type, mitigation}}"
+            f"  guardrails_added: list of strings"
+            f"  safe_to_proceed: bool"
+            f"Plan: {plan}"
+            f"Return only valid JSON inside a markdown code block if needed."
+        )
+        text = self._call_llm(prompt, "planning.llm_pitfall")
+        parsed = self._parse_json(text)
+        required = {"pitfalls_detected", "guardrails_added", "safe_to_proceed"}
+        if not required.issubset(parsed.keys()):
+            raise RuntimeError("LLM pitfall returned incomplete JSON")
+        return parsed
+
+
 class PlanningLayer:
     """Orchestrates all Layer 3 planners with escalation and rejection paths."""
 
@@ -957,12 +1109,47 @@ class PlanningLayer:
         self.mars = MARSReflector(observability)
         self.maci = MACIMetaPlanner(observability)
         self.vmao = VMAOPlanner(config, observability)
+        if config.enable_llm_planning:
+            self._llm_planner: Optional[LLMPlanner] = LLMPlanner(config, observability)
+        else:
+            self._llm_planner = None
+
+    def _heuristic_plan(self, state: AIOState) -> str:
+        intent = state.get("intent", "general")
+        memory = state.get("working_memory", [])
+        snippets = " | ".join(str(m.get("content", ""))[:100] for m in memory[:3])
+        return f"Plan for intent='{intent}': 1) ingest input 2) retrieve memory [{snippets}] 3) verify 4) execute 5) finalize."
+
+    def generate_plan(self, state: AIOState) -> AIOState:
+        if self._llm_planner is not None:
+            try:
+                state["plan"] = self._llm_planner.generate_plan(state)
+                return state
+            except Exception as exc:
+                self.obs.log(logging.WARNING, f"LLM generate_plan failed, falling back to heuristic: {exc}")
+                self.obs.count_node("planning.llm_generate", "fallback")
+        state["plan"] = self._heuristic_plan(state)
+        return state
 
     def run_hiplan(self, state: AIOState) -> AIOState:
+        if self._llm_planner is not None:
+            try:
+                state["hierarchical_plan"] = self._llm_planner.decompose_tasks(state)
+                return state
+            except Exception as exc:
+                self.obs.log(logging.WARNING, f"LLM decompose_tasks failed, falling back to heuristic: {exc}")
+                self.obs.count_node("planning.llm_decompose", "fallback")
         state["hierarchical_plan"] = self.hiplan.plan(state)
         return state
 
     def run_flare(self, state: AIOState) -> AIOState:
+        if self._llm_planner is not None:
+            try:
+                state["lookahead_result"] = self._llm_planner.lookahead_analysis(state)
+                return state
+            except Exception as exc:
+                self.obs.log(logging.WARNING, f"LLM lookahead_analysis failed, falling back to heuristic: {exc}")
+                self.obs.count_node("planning.llm_lookahead", "fallback")
         state["lookahead_result"] = self.flare.lookahead(state)
         return state
 
@@ -971,6 +1158,19 @@ class PlanningLayer:
         return state
 
     def run_ppa(self, state: AIOState) -> AIOState:
+        if self._llm_planner is not None:
+            try:
+                analysis = self._llm_planner.pitfall_analysis(state)
+                state["pitfall_analysis"] = analysis
+                if not analysis.get("safe_to_proceed", True):
+                    state["failure_state"] = "FAILED"
+                    state["error"] = state.get("error") or f"PPA blocked: {len(analysis['pitfalls_detected'])} pitfall(s) detected."
+                    self.obs.set_failure_state("FAILED")
+                    self.obs.count_node("planning.ppa", "escalated")
+                return state
+            except Exception as exc:
+                self.obs.log(logging.WARNING, f"LLM pitfall_analysis failed, falling back to heuristic: {exc}")
+                self.obs.count_node("planning.llm_pitfall", "fallback")
         analysis = self.ppa.analyze(state)
         state["pitfall_analysis"] = analysis
         if not analysis.get("safe_to_proceed", True):
@@ -2040,13 +2240,8 @@ def node_memory_consolidate(state: AIOState, mem: MemoryBridge) -> AIOState:
     return mem.consolidate(state)
 
 
-def node_plan_generate(state: AIOState) -> AIOState:
-    intent = state.get("intent", "general")
-    memory = state.get("working_memory", [])
-    snippets = " | ".join(str(m.get("content", ""))[:100] for m in memory[:3])
-    plan = f"Plan for intent='{intent}': 1) ingest input 2) retrieve memory [{snippets}] 3) verify 4) execute 5) finalize."
-    state["plan"] = plan
-    return state
+def node_plan_generate(state: AIOState, planning: PlanningLayer) -> AIOState:
+    return planning.generate_plan(state)
 
 
 # Layer 3 nodes
@@ -2380,7 +2575,7 @@ def build_aio_graph(config: Optional[AIOConfig] = None) -> Any:
     graph.add_node("curiosity_umwelt", lambda s: node_curiosity_umwelt(s, curiosity))
 
     # Planning stub (generates base plan)
-    graph.add_node("plan_generate", node_plan_generate)
+    graph.add_node("plan_generate", lambda s: node_plan_generate(s, planning))
 
     # Layer 3
     graph.add_node("maci_select", lambda s: node_maci_select(s, planning))
