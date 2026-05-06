@@ -28,6 +28,7 @@
 | D013 | 2024-05-06 | Self-evolution auto-apply whitelists only bounded config keys | Prevents safety threshold or layer disable from automatic changes | Only `retrieval_top_k`, backoff timing, and similar tunables can auto-apply | Active |
 | D014 | 2024-05-06 | No new Python dependencies for Priority 3 | Minimizes environment drift, keeps `requirements.txt` stable | Simulated multi-agent dispatch instead of real agent framework | Active |
 | D015 | 2024-05-06 | Create SESSION_START.md, PROJECT_STATE.md, DECISION_LOG.md | Prevents context loss between development sessions | Three additional files to maintain; updates required after significant changes | Active |
+| D016 | 2024-05-06 | Integrate `sentence-transformers` real embeddings behind `ENABLE_REAL_EMBEDDINGS` flag | Production retrieval accuracy requires real vectors; deterministic pseudo-embeddings must remain the default for standalone testing | Adds optional dependency `sentence-transformers>=2.2.0`; fallback to pseudo-embeddings when flag is off or model fails to load; dimension-agnostic cosine similarity means no downstream changes | Active |
 
 ---
 

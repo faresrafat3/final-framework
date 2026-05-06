@@ -1,5 +1,5 @@
 import time
-from unittest.mock import patch
+from unittest.mock import patch, MagicMock
 
 import pytest
 
@@ -9,6 +9,7 @@ from aio_framework import (
     ObservabilityLayer,
     ObservabilityConfig,
     make_initial_state,
+    SENTENCE_TRANSFORMERS_AVAILABLE,
 )
 
 
@@ -108,3 +109,64 @@ class TestMemoryBridge:
         state = make_initial_state("memory item")
         state = mem.retrieve(state)
         assert len(state["working_memory"]) <= mem.config.retrieval_top_k
+
+    def test_real_embedding_when_enabled_and_available(self):
+        obs = ObservabilityLayer(ObservabilityConfig(log_level="DEBUG", prometheus_port=0))
+        mock_model = MagicMock()
+        mock_model.encode.return_value = MagicMock(
+            dot=lambda *args: 1.0,
+            __iter__=lambda self: iter([1.0, 0.0, 0.0, 0.0]),
+        )
+        with patch.dict("aio_framework.__dict__", {"SentenceTransformer": lambda name: mock_model, "SENTENCE_TRANSFORMERS_AVAILABLE": True}):
+            cfg = MemoryConfig(
+                epiphany_ttl_seconds=1,
+                consolidation_batch_size=2,
+                retrieval_top_k=3,
+                importance_threshold=0.3,
+                forget_ttl_seconds=2,
+                use_real_embeddings=True,
+            )
+            mem = MemoryBridge(cfg, obs)
+            vec = mem._embed("hello")
+            mock_model.encode.assert_called_once()
+            assert abs(sum(x * x for x in vec) - 1.0) < 1e-6
+
+    def test_fallback_to_pseudo_when_disabled(self, mem):
+        v1 = mem._embed("fallback")
+        v2 = mem._embed("fallback")
+        assert v1 == v2
+        assert abs(sum(x * x for x in v1) - 1.0) < 1e-6
+
+    def test_fallback_when_real_enabled_but_import_missing(self):
+        obs = ObservabilityLayer(ObservabilityConfig(log_level="DEBUG", prometheus_port=0))
+        with patch("aio_framework.SENTENCE_TRANSFORMERS_AVAILABLE", False):
+            cfg = MemoryConfig(
+                epiphany_ttl_seconds=1,
+                consolidation_batch_size=2,
+                retrieval_top_k=3,
+                importance_threshold=0.3,
+                forget_ttl_seconds=2,
+                use_real_embeddings=True,
+            )
+            mem = MemoryBridge(cfg, obs)
+            vec = mem._embed("hello")
+            assert mem._embedding_model is None
+            assert abs(sum(x * x for x in vec) - 1.0) < 1e-6
+
+    def test_fallback_when_model_load_fails(self):
+        obs = ObservabilityLayer(ObservabilityConfig(log_level="DEBUG", prometheus_port=0))
+        def _raise(*args, **kwargs):
+            raise RuntimeError("load failed")
+        with patch.dict("aio_framework.__dict__", {"SentenceTransformer": _raise, "SENTENCE_TRANSFORMERS_AVAILABLE": True}):
+            cfg = MemoryConfig(
+                epiphany_ttl_seconds=1,
+                consolidation_batch_size=2,
+                retrieval_top_k=3,
+                importance_threshold=0.3,
+                forget_ttl_seconds=2,
+                use_real_embeddings=True,
+            )
+            mem = MemoryBridge(cfg, obs)
+            vec = mem._embed("hello")
+            assert mem._embedding_model is None
+            assert abs(sum(x * x for x in vec) - 1.0) < 1e-6

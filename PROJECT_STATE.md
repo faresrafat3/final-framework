@@ -48,7 +48,7 @@
 
 ## 3. Known Issues / Limitations
 
-1. **Vector embeddings are pseudo-vectors**: Deterministic hash-based for standalone operation. Replace with real embedding model for production retrieval accuracy.
+1. **Real embedding support behind feature flag**: `sentence-transformers` integration is available via `ENABLE_REAL_EMBEDDINGS=true`. When disabled (default) or when the library is unavailable, deterministic pseudo-embeddings are used as fallback. Mixing real and pseudo vectors in the same memory store may yield inconsistent similarity scores if the flag is toggled mid-session.
 2. **LangSmith requires valid API key**: Disabled automatically if unavailable.
 3. **Docker sandbox requires local socket**: Falls back to graceful error if unavailable.
 4. **Plan generation is heuristic-based**: Full LLM-based planning deferred to future priority.
@@ -68,7 +68,7 @@
 ## 5. Ordered Next Steps (Priority 4 Ideas)
 
 1. **Modularize `aio_framework.py`**: Split into `aio/` package with `layers/`, `config/`, `graph/`, `prompts/` submodules. Document trade-offs in `DECISION_LOG.md`.
-2. **Real embedding integration**: Swap pseudo-vectors for `sentence-transformers` or OpenAI embeddings behind feature flag.
+2. ~~Real embedding integration~~ ✅ Done — integrated behind `ENABLE_REAL_EMBEDDINGS` flag.
 3. **LLM-based planning**: Replace heuristic planners with LangChain LLM calls.
 4. **Persistent memory backend**: Add Redis/PostgreSQL backend for `MemoryBridge`.
 5. **Multi-agent real dispatch**: Integrate with actual agent framework (e.g., LangGraph multi-agent) behind abstraction layer.
@@ -90,9 +90,10 @@ docker: >=7.0
 pytest: >=8.0
 pytest-asyncio: >=0.23
 pytest-cov: >=4.1
+sentence-transformers: >=2.2.0
 ```
 
-**No new dependencies added in Priority 3.**
+**New dependency added in Priority 3+:** `sentence-transformers>=2.2.0` (optional, behind feature flag).
 
 ---
 
@@ -105,6 +106,7 @@ pytest-cov: >=4.1
 | `MULTI_AGENT_ENABLE` | `true` | Layer 10 enable |
 | `SAFETY_GOVERNANCE_ENABLE` | `true` | Layer 11 enable |
 | `COGNITIVE_IMMUNE_ENABLE` | `true` | Layer 12 enable |
+| `ENABLE_REAL_EMBEDDINGS` | `false` | Use `sentence-transformers` for real embeddings (fallback to pseudo-embeddings if unavailable) |
 
 All flags are env-driven and checked at config initialization time.
 

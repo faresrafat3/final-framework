@@ -64,6 +64,12 @@ try:
 except Exception:  # pragma: no cover
     LANGSMITH_AVAILABLE = False
 
+try:
+    from sentence_transformers import SentenceTransformer
+    SENTENCE_TRANSFORMERS_AVAILABLE = True
+except Exception:  # pragma: no cover
+    SENTENCE_TRANSFORMERS_AVAILABLE = False
+
 
 # ---------------------------------------------------------------------------
 # Constants & Configuration
@@ -106,6 +112,8 @@ class MemoryConfig(BaseModel):
     retrieval_top_k: int = 5
     importance_threshold: float = 0.2
     forget_ttl_seconds: int = 86400
+    use_real_embeddings: bool = Field(default_factory=lambda: os.getenv("ENABLE_REAL_EMBEDDINGS", "false").lower() == "true")
+    embedding_model_name: str = Field(default="all-MiniLM-L6-v2")
 
 
 class PlanningConfig(BaseModel):
@@ -547,6 +555,12 @@ class MemoryBridge:
         self._episodic: Dict[str, Dict[str, Any]] = {}
         self._long_term: Dict[str, Dict[str, Any]] = {}
         self._keyword_index: Dict[str, List[str]] = {}
+        self._embedding_model: Optional[Any] = None
+        if config.use_real_embeddings and SENTENCE_TRANSFORMERS_AVAILABLE:
+            try:
+                self._embedding_model = SentenceTransformer(config.embedding_model_name)
+            except Exception as exc:  # pragma: no cover
+                logging.warning("Failed to load embedding model '%s': %s. Falling back to pseudo-embeddings.", config.embedding_model_name, exc)
 
     def _hash(self, content: str) -> str:
         return hashlib.sha256(content.encode()).hexdigest()[:16]
@@ -564,7 +578,11 @@ class MemoryBridge:
         return min(1.0, base + recency * 0.1)
 
     def _embed(self, content: str) -> List[float]:
-        """Deterministic pseudo-embedding for standalone operation."""
+        """Return real or pseudo embedding depending on config and availability."""
+        if self._embedding_model is not None:
+            vec = self._embedding_model.encode(content, convert_to_numpy=True)
+            norm = float(vec.dot(vec)) ** 0.5 or 1.0
+            return [float(v) / norm for v in vec]
         h = int(hashlib.sha256(content.encode()).hexdigest(), 16)
         random.seed(h)
         vec = [random.random() for _ in range(64)]
