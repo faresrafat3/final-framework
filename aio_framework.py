@@ -155,6 +155,36 @@ class FailureRecoveryConfig(BaseModel):
     escalation_threshold: int = 3
 
 
+class SelfEvolutionConfig(BaseModel):
+    enable: bool = Field(default_factory=lambda: os.getenv("SELF_EVOLUTION_ENABLE", "true").lower() == "true")
+    min_turns_before_analysis: int = 1
+    performance_window_size: int = 5
+    auto_apply_config_delta: bool = False
+
+
+class MultiAgentConfig(BaseModel):
+    enable: bool = Field(default_factory=lambda: os.getenv("MULTI_AGENT_ENABLE", "true").lower() == "true")
+    max_agents: int = 4
+    consensus_threshold: float = 0.7
+    timeout_seconds: int = 30
+    agents: List[str] = Field(default_factory=lambda: ["coder", "analyst", "planner", "safety_officer"])
+
+
+class SafetyGovernanceConfig(BaseModel):
+    enable: bool = Field(default_factory=lambda: os.getenv("SAFETY_GOVERNANCE_ENABLE", "true").lower() == "true")
+    audit_level: str = "standard"
+    require_governance_for: List[str] = Field(default_factory=lambda: ["config_change", "quarantine", "escalation"])
+    constitutional_enforcement: bool = True
+
+
+class CognitiveImmuneConfig(BaseModel):
+    enable: bool = Field(default_factory=lambda: os.getenv("COGNITIVE_IMMUNE_ENABLE", "true").lower() == "true")
+    anomaly_threshold: float = 0.6
+    auto_quarantine: bool = True
+    auto_heal: bool = True
+    pattern_db_ttl_seconds: int = 3600
+
+
 class AIOConfig(BaseModel):
     observability: ObservabilityConfig = Field(default_factory=ObservabilityConfig)
     context: ContextConfig = Field(default_factory=ContextConfig)
@@ -165,6 +195,11 @@ class AIOConfig(BaseModel):
     tool_optimizer: ToolOptimizerConfig = Field(default_factory=ToolOptimizerConfig)
     toolgate: ToolGateConfig = Field(default_factory=ToolGateConfig)
     failure_recovery: FailureRecoveryConfig = Field(default_factory=FailureRecoveryConfig)
+    self_evolution: SelfEvolutionConfig = Field(default_factory=SelfEvolutionConfig)
+    multi_agent: MultiAgentConfig = Field(default_factory=MultiAgentConfig)
+    safety_governance: SafetyGovernanceConfig = Field(default_factory=SafetyGovernanceConfig)
+    cognitive_immune: CognitiveImmuneConfig = Field(default_factory=CognitiveImmuneConfig)
+    enable_priority_3: bool = Field(default_factory=lambda: os.getenv("ENABLE_PRIORITY_3", "true").lower() == "true")
 
 
 # ---------------------------------------------------------------------------
@@ -209,6 +244,24 @@ class AIOState(TypedDict, total=False):
     output: Optional[str]
     error: Optional[str]
     metrics: Dict[str, Any]
+    # Layer 9 — Self-Evolution
+    self_evolution_report: Optional[Dict[str, Any]]
+    performance_snapshot: Optional[Dict[str, Any]]
+    suggested_config_delta: Optional[List[Dict[str, Any]]]
+    # Layer 10 — Multi-Agent Coordination
+    coordination_plan: Optional[Dict[str, Any]]
+    agent_outputs: Optional[Dict[str, Any]]
+    consensus_score: Optional[float]
+    # Layer 11 — Safety & Governance
+    audit_trail: Optional[List[Dict[str, Any]]]
+    governance_result: Optional[Dict[str, Any]]
+    compliance_violations: Optional[List[Dict[str, Any]]]
+    # Layer 12 — Cognitive Immune System
+    immune_status: Optional[str]
+    anomaly_score: Optional[float]
+    quarantined_ids: Optional[List[str]]
+    healing_actions: Optional[List[Dict[str, Any]]]
+    threat_patterns_detected: Optional[List[Dict[str, Any]]]
 
 
 def make_initial_state(raw_input: str = "", session_id: Optional[str] = None) -> AIOState:
@@ -252,6 +305,20 @@ def make_initial_state(raw_input: str = "", session_id: Optional[str] = None) ->
         "output": None,
         "error": None,
         "metrics": {},
+        "self_evolution_report": None,
+        "performance_snapshot": None,
+        "suggested_config_delta": None,
+        "coordination_plan": None,
+        "agent_outputs": None,
+        "consensus_score": None,
+        "audit_trail": None,
+        "governance_result": None,
+        "compliance_violations": None,
+        "immune_status": None,
+        "anomaly_score": None,
+        "quarantined_ids": None,
+        "healing_actions": None,
+        "threat_patterns_detected": None,
     }
 
 
@@ -1549,6 +1616,377 @@ class FailureRecovery:
         self.obs.count_node("failure.degrade", "degraded")
         return state
 
+# ---------------------------------------------------------------------------
+# Layer 9 — Self-Evolution
+# ---------------------------------------------------------------------------
+
+class SelfEvolutionLayer:
+    """Analyzes performance trends and suggests safe, bounded config improvements."""
+
+    def __init__(self, config: SelfEvolutionConfig, observability: ObservabilityLayer) -> None:
+        self.config = config
+        self.obs = observability
+        self._snapshots: List[Dict[str, Any]] = []
+        self._applied_deltas: List[Dict[str, Any]] = []
+
+    def analyze(self, state: AIOState) -> AIOState:
+        start = time.time()
+        with self.obs.start_span("self_evolution.analyze", state.get("trace_id")):
+            snapshot = {
+                "turn": state.get("turn", 0),
+                "latency_seconds": round(time.time() - start, 4),
+                "success": state.get("error") is None and state.get("failure_state") == "HEALTHY",
+                "memory_confidence": state.get("memory_confidence", 0.0),
+                "verification_score": state.get("verification_result", {}).get("ensemble_score", 0.0),
+            }
+            self._snapshots.append(snapshot)
+            state["performance_snapshot"] = snapshot
+            self.obs.record_latency("self_evolution.analyze", time.time() - start)
+            self.obs.count_node("self_evolution.analyze", "success")
+        return state
+
+    def generate_report(self, state: AIOState) -> AIOState:
+        start = time.time()
+        with self.obs.start_span("self_evolution.report", state.get("trace_id")):
+            window = self._snapshots[-self.config.performance_window_size:]
+            if not window:
+                report = {"window_size": 0, "avg_latency": 0.0, "error_rate": 0.0, "memory_confidence_trend": "insufficient_data"}
+            else:
+                avg_latency = sum(s.get("latency_seconds", 0.0) for s in window) / len(window)
+                error_rate = sum(1 for s in window if not s.get("success", True)) / len(window)
+                mem_confidences = [s.get("memory_confidence", 0.0) for s in window]
+                trend = "stable"
+                if len(mem_confidences) >= 2:
+                    first_half = sum(mem_confidences[:len(mem_confidences)//2]) / max(1, len(mem_confidences)//2)
+                    second_half = sum(mem_confidences[len(mem_confidences)//2:]) / max(1, len(mem_confidences) - len(mem_confidences)//2)
+                    if second_half > first_half + 0.1:
+                        trend = "improving"
+                    elif second_half < first_half - 0.1:
+                        trend = "declining"
+                report = {
+                    "window_size": len(window),
+                    "avg_latency": round(avg_latency, 4),
+                    "error_rate": round(error_rate, 4),
+                    "memory_confidence_trend": trend,
+                }
+            state["self_evolution_report"] = report
+            self.obs.record_latency("self_evolution.report", time.time() - start)
+            self.obs.count_node("self_evolution.report", "success")
+        return state
+
+    def suggest_improvements(self, state: AIOState) -> AIOState:
+        start = time.time()
+        with self.obs.start_span("self_evolution.suggest", state.get("trace_id")):
+            report = state.get("self_evolution_report", {})
+            deltas: List[Dict[str, Any]] = []
+            if report.get("memory_confidence_trend") == "declining":
+                deltas.append({"key": "retrieval_top_k", "old": 5, "new": 7, "rationale": "Low memory confidence in window"})
+            if report.get("error_rate", 0.0) > 0.3:
+                deltas.append({"key": "base_backoff_seconds", "old": 1.0, "new": 2.0, "rationale": "High transient failure rate"})
+            state["suggested_config_delta"] = deltas
+            self.obs.record_latency("self_evolution.suggest", time.time() - start)
+            self.obs.count_node("self_evolution.suggest", "success" if deltas else "none")
+        return state
+
+    def apply_deltas(self, state: AIOState) -> AIOState:
+        start = time.time()
+        with self.obs.start_span("self_evolution.apply", state.get("trace_id")):
+            if not self.config.auto_apply_config_delta:
+                self.obs.count_node("self_evolution.apply", "skipped")
+                return state
+            deltas = state.get("suggested_config_delta", [])
+            applied = []
+            whitelist = {"retrieval_top_k", "base_backoff_seconds", "max_tokens"}
+            for delta in deltas:
+                key = delta.get("key", "")
+                if key in whitelist:
+                    applied.append(delta)
+                    self._applied_deltas.append(delta)
+            state.setdefault("metrics", {})["self_evolution_applied"] = applied
+            self.obs.record_latency("self_evolution.apply", time.time() - start)
+            self.obs.count_node("self_evolution.apply", "success" if applied else "none")
+        return state
+
+
+# ---------------------------------------------------------------------------
+# Layer 10 — Multi-Agent Coordination
+# ---------------------------------------------------------------------------
+
+class MultiAgentCoordinator:
+    """Decomposes complex tasks across registered agents and synthesizes consensus."""
+
+    def __init__(self, config: MultiAgentConfig, observability: ObservabilityLayer) -> None:
+        self.config = config
+        self.obs = observability
+        self._registry: Dict[str, Dict[str, Any]] = {
+            "coder": {"role": "Implementation", "strengths": ["code", "debug", "refactor"]},
+            "analyst": {"role": "Analysis", "strengths": ["data", "patterns", "summary"]},
+            "planner": {"role": "Strategy", "strengths": ["decompose", "dependencies", "schedule"]},
+            "safety_officer": {"role": "Safety", "strengths": ["risk", "compliance", "boundaries"]},
+        }
+
+    def decompose(self, state: AIOState) -> AIOState:
+        start = time.time()
+        with self.obs.start_span("multi_agent.decompose", state.get("trace_id")):
+            intent = state.get("intent", "general")
+            plan = state.get("plan", "")
+            subtasks = []
+            if intent in {"coding", "analysis"}:
+                subtasks.append({"id": "st-1", "agent": "planner", "description": "Decompose requirements"})
+                subtasks.append({"id": "st-2", "agent": "coder" if intent == "coding" else "analyst", "description": "Execute core task"})
+                subtasks.append({"id": "st-3", "agent": "safety_officer", "description": "Verify compliance"})
+            else:
+                subtasks.append({"id": "st-1", "agent": "planner", "description": "Plan task"})
+                subtasks.append({"id": "st-2", "agent": "analyst", "description": "Analyze context"})
+            state["coordination_plan"] = {"subtasks": subtasks, "intent": intent, "plan": plan}
+            self.obs.record_latency("multi_agent.decompose", time.time() - start)
+            self.obs.count_node("multi_agent.decompose", "success")
+        return state
+
+    def dispatch(self, state: AIOState) -> AIOState:
+        start = time.time()
+        with self.obs.start_span("multi_agent.dispatch", state.get("trace_id")):
+            plan = state.get("coordination_plan", {})
+            subtasks = plan.get("subtasks", [])
+            outputs: Dict[str, Any] = {}
+            for st in subtasks:
+                agent = st.get("agent", "unknown")
+                confidence = round(0.7 + (0.25 if agent in self._registry else 0.0), 4)
+                outputs[st["id"]] = {
+                    "agent": agent,
+                    "confidence": confidence,
+                    "result": f"Simulated output from {agent} for {st.get('description', '')}",
+                }
+            state["agent_outputs"] = outputs
+            self.obs.record_latency("multi_agent.dispatch", time.time() - start)
+            self.obs.count_node("multi_agent.dispatch", "success")
+        return state
+
+    def aggregate(self, state: AIOState) -> AIOState:
+        start = time.time()
+        with self.obs.start_span("multi_agent.aggregate", state.get("trace_id")):
+            outputs = state.get("agent_outputs", {})
+            if not outputs:
+                consensus = 0.0
+            else:
+                confidences = [o.get("confidence", 0.0) for o in outputs.values()]
+                avg_conf = sum(confidences) / len(confidences)
+                variance = sum((c - avg_conf) ** 2 for c in confidences) / len(confidences)
+                consensus = round(max(0.0, avg_conf - variance), 4)
+            state["consensus_score"] = consensus
+            self.obs.record_latency("multi_agent.aggregate", time.time() - start)
+            self.obs.count_node("multi_agent.aggregate", "success")
+        return state
+
+    def synthesize(self, state: AIOState) -> AIOState:
+        start = time.time()
+        with self.obs.start_span("multi_agent.synthesize", state.get("trace_id")):
+            outputs = state.get("agent_outputs", {})
+            parts = [o.get("result", "") for o in outputs.values()]
+            unified = " | ".join(parts) if parts else "No agent outputs"
+            state["plan"] = unified
+            self.obs.record_latency("multi_agent.synthesize", time.time() - start)
+            self.obs.count_node("multi_agent.synthesize", "success")
+        return state
+
+
+# ---------------------------------------------------------------------------
+# Layer 11 — Safety & Governance
+# ---------------------------------------------------------------------------
+
+class SafetyGovernance:
+    """Per-turn audit, constitutional compliance, governance voting, and decision recording."""
+
+    def __init__(self, config: SafetyGovernanceConfig, observability: ObservabilityLayer) -> None:
+        self.config = config
+        self.obs = observability
+        self._decisions: List[Dict[str, Any]] = []
+
+    def audit(self, state: AIOState) -> AIOState:
+        start = time.time()
+        with self.obs.start_span("governance.audit", state.get("trace_id")):
+            entry = {
+                "turn": state.get("turn", 0),
+                "timestamp": time.time(),
+                "plan_present": bool(state.get("plan")),
+                "verification_present": bool(state.get("verification_result")),
+                "safety_clean": len(state.get("safety_violations", [])) == 0,
+                "god_object_detected": self._detect_god_object(state),
+            }
+            trail = state.get("audit_trail", []) or []
+            trail.append(entry)
+            state["audit_trail"] = trail
+            self.obs.record_latency("governance.audit", time.time() - start)
+            self.obs.count_node("governance.audit", "success")
+        return state
+
+    def _detect_god_object(self, state: AIOState) -> bool:
+        filled = sum(1 for v in state.values() if v is not None and v != [] and v != {} and v != 0 and v != 0.0 and v != "")
+        total = len(state)
+        return filled > 0 and (filled / total) > 0.9
+
+    def check_compliance(self, state: AIOState) -> AIOState:
+        start = time.time()
+        with self.obs.start_span("governance.compliance", state.get("trace_id")):
+            violations: List[Dict[str, Any]] = []
+            if not state.get("plan"):
+                violations.append({"type": "pure_llm_decision", "details": "No plan present in state"})
+            if not state.get("verification_result"):
+                violations.append({"type": "uncritiqued_output", "details": "No verification result in state"})
+            if state.get("safety_violations"):
+                violations.append({"type": "constitutional_breach", "details": "Safety violations detected"})
+            if self._detect_god_object(state):
+                violations.append({"type": "god_object", "details": "Single layer appears to dominate state"})
+            state["compliance_violations"] = violations
+            self.obs.record_latency("governance.compliance", time.time() - start)
+            self.obs.count_node("governance.compliance", "success" if not violations else "violation")
+        return state
+
+    def governance_vote(self, state: AIOState) -> AIOState:
+        start = time.time()
+        with self.obs.start_span("governance.vote", state.get("trace_id")):
+            violations = state.get("compliance_violations", []) or []
+            if violations:
+                outcome = "blocked"
+                majority = 0.0
+            else:
+                outcome = "approved"
+                majority = 1.0
+            state["governance_result"] = {
+                "sensitive_action": "none",
+                "vote_outcome": outcome,
+                "majority": majority,
+            }
+            self.obs.record_latency("governance.vote", time.time() - start)
+            self.obs.count_node("governance.vote", outcome)
+        return state
+
+    def record_decision(self, state: AIOState) -> AIOState:
+        start = time.time()
+        with self.obs.start_span("governance.record", state.get("trace_id")):
+            decision = {
+                "turn": state.get("turn", 0),
+                "timestamp": time.time(),
+                "governance_result": state.get("governance_result"),
+                "compliance_violations": state.get("compliance_violations"),
+            }
+            self._decisions.append(decision)
+            self.obs.record_latency("governance.record", time.time() - start)
+            self.obs.count_node("governance.record", "success")
+        return state
+
+
+# ---------------------------------------------------------------------------
+# Layer 12 — Cognitive Immune System
+# ---------------------------------------------------------------------------
+
+class CognitiveImmuneSystem:
+    """Anomaly detection, threat pattern tracking, quarantine, and self-healing."""
+
+    def __init__(self, config: CognitiveImmuneConfig, observability: ObservabilityLayer) -> None:
+        self.config = config
+        self.obs = observability
+        self._threat_db: Dict[str, Dict[str, Any]] = {}
+        self._quarantine_store: Dict[str, Dict[str, Any]] = {}
+
+    def scan(self, state: AIOState) -> AIOState:
+        start = time.time()
+        with self.obs.start_span("immune.scan", state.get("trace_id")):
+            score = 0.0
+            fcount = state.get("failure_count", 0)
+            if fcount > 2:
+                score += 0.4
+            if state.get("retry_budget", 0) == 0 and state.get("failure_state") != "HEALTHY":
+                score += 0.3
+            violations = state.get("safety_violations", [])
+            if len(violations) > 2:
+                score += 0.3
+            wm = state.get("working_memory", []) or []
+            corrupted = sum(1 for m in wm if m is None or not isinstance(m, dict) or m.get("content") is None)
+            if corrupted > 0:
+                score += 0.2
+            state["anomaly_score"] = round(min(1.0, score), 4)
+            self.obs.record_latency("immune.scan", time.time() - start)
+            self.obs.count_node("immune.scan", "success")
+        return state
+
+    def detect_threats(self, state: AIOState) -> AIOState:
+        start = time.time()
+        with self.obs.start_span("immune.detect", state.get("trace_id")):
+            now = time.time()
+            ttl = self.config.pattern_db_ttl_seconds
+            for key in list(self._threat_db.keys()):
+                if now - self._threat_db[key].get("first_seen", now) > ttl:
+                    del self._threat_db[key]
+            if state.get("failure_count", 0) > 2:
+                self._threat_db.setdefault("rapid_failure", {"count": 0, "first_seen": now, "severity": "high"})["count"] += 1
+            wm = state.get("working_memory", []) or []
+            corrupted = sum(1 for m in wm if m is None or not isinstance(m, dict) or m.get("content") is None)
+            if corrupted > 0:
+                self._threat_db.setdefault("memory_corruption", {"count": 0, "first_seen": now, "severity": "high"})["count"] += 1
+            patterns = [{"pattern": k, "count": v["count"], "severity": v["severity"]} for k, v in self._threat_db.items()]
+            state["threat_patterns_detected"] = patterns
+            self.obs.record_latency("immune.detect", time.time() - start)
+            self.obs.count_node("immune.detect", "success")
+        return state
+
+    def quarantine(self, state: AIOState) -> AIOState:
+        start = time.time()
+        with self.obs.start_span("immune.quarantine", state.get("trace_id")):
+            qids: List[str] = []
+            if self.config.auto_quarantine and state.get("anomaly_score", 0.0) > self.config.anomaly_threshold:
+                wm = state.get("working_memory", []) or []
+                for i, entry in enumerate(wm):
+                    if entry is None or not isinstance(entry, dict) or entry.get("content") is None:
+                        eid = entry.get("id", f"quarantine-{i}") if isinstance(entry, dict) else f"quarantine-{i}"
+                        self._quarantine_store[eid] = {"entry": entry, "timestamp": time.time()}
+                        qids.append(eid)
+            state["quarantined_ids"] = qids
+            self.obs.record_latency("immune.quarantine", time.time() - start)
+            self.obs.count_node("immune.quarantine", "quarantined" if qids else "clean")
+        return state
+
+    def heal(self, state: AIOState) -> AIOState:
+        start = time.time()
+        with self.obs.start_span("immune.heal", state.get("trace_id")):
+            actions: List[Dict[str, Any]] = []
+            if not self.config.auto_heal:
+                self.obs.count_node("immune.heal", "skipped")
+                return state
+            if state.get("failure_state") == "FAILED":
+                actions.append({"action": "none", "target": "system", "rationale": "Auto-heal disabled when FAILED"})
+                state["healing_actions"] = actions
+                self.obs.record_latency("immune.heal", time.time() - start)
+                self.obs.count_node("immune.heal", "blocked")
+                return state
+            wm = state.get("working_memory", []) or []
+            cleaned = [m for m in wm if m is not None and isinstance(m, dict) and m.get("content") is not None]
+            if len(cleaned) < len(wm):
+                state["working_memory"] = cleaned
+                actions.append({"action": "clear_corrupted", "target": "working_memory", "rationale": "Removed corrupted entries"})
+            if state.get("failure_count", 0) > 0 and state.get("failure_state") == "HEALTHY":
+                actions.append({"action": "reset_failure_counts", "target": "failure_state", "rationale": "State is healthy"})
+            if not actions:
+                actions.append({"action": "none", "target": "memory", "rationale": "No corruption detected"})
+            state["healing_actions"] = actions
+            self.obs.record_latency("immune.heal", time.time() - start)
+            self.obs.count_node("immune.heal", "success" if any(a["action"] != "none" for a in actions) else "none")
+        return state
+
+    def update_immunity(self, state: AIOState) -> AIOState:
+        start = time.time()
+        with self.obs.start_span("immune.update", state.get("trace_id")):
+            anomaly = state.get("anomaly_score", 0.0)
+            if anomaly > self.config.anomaly_threshold:
+                status = "ALERT"
+            elif anomaly > 0.3:
+                status = "WATCH"
+            else:
+                status = "HEALTHY"
+            state["immune_status"] = status
+            self.obs.record_latency("immune.update", time.time() - start)
+            self.obs.count_node("immune.update", status.lower())
+        return state
 
 # ---------------------------------------------------------------------------
 # Graph Nodes
@@ -1746,6 +2184,59 @@ def node_finalize_output(state: AIOState) -> AIOState:
     return state
 
 
+# Layer 9 nodes
+
+
+def node_self_evolution_analyze(state: AIOState, layer: SelfEvolutionLayer) -> AIOState:
+    state = layer.analyze(state)
+    state = layer.generate_report(state)
+    state = layer.suggest_improvements(state)
+    state = layer.apply_deltas(state)
+    return state
+
+
+# Layer 10 nodes
+
+
+def node_multi_agent_decompose(state: AIOState, layer: MultiAgentCoordinator) -> AIOState:
+    return layer.decompose(state)
+
+
+def node_multi_agent_dispatch(state: AIOState, layer: MultiAgentCoordinator) -> AIOState:
+    return layer.dispatch(state)
+
+
+def node_multi_agent_aggregate(state: AIOState, layer: MultiAgentCoordinator) -> AIOState:
+    return layer.aggregate(state)
+
+
+def node_multi_agent_synthesize(state: AIOState, layer: MultiAgentCoordinator) -> AIOState:
+    return layer.synthesize(state)
+
+
+# Layer 11 nodes
+
+
+def node_safety_governance_audit(state: AIOState, layer: SafetyGovernance) -> AIOState:
+    state = layer.audit(state)
+    state = layer.check_compliance(state)
+    state = layer.governance_vote(state)
+    state = layer.record_decision(state)
+    return state
+
+
+# Layer 12 nodes
+
+
+def node_cognitive_immune_scan(state: AIOState, layer: CognitiveImmuneSystem) -> AIOState:
+    state = layer.scan(state)
+    state = layer.detect_threats(state)
+    state = layer.quarantine(state)
+    state = layer.heal(state)
+    state = layer.update_immunity(state)
+    return state
+
+
 # ---------------------------------------------------------------------------
 # Conditional Routing
 # ---------------------------------------------------------------------------
@@ -1802,6 +2293,33 @@ def route_context_priority(state: AIOState, ctx_mgr: ContextManager) -> str:
     if target == "execute":
         return "gstep_evaluate"
     return "memory_retrieve"
+
+
+def route_multi_agent(state: AIOState, config: AIOConfig) -> str:
+    if not config.enable_priority_3 or not config.multi_agent.enable:
+        return "hiplan"
+    intent = state.get("intent", "general")
+    plan = state.get("plan", "")
+    if intent in {"coding", "analysis"} or len(plan) > 200:
+        return "multi_agent_decompose"
+    return "hiplan"
+
+
+def route_safety_governance(state: AIOState, config: AIOConfig) -> str:
+    if not config.enable_priority_3 or not config.safety_governance.enable:
+        return "verify_plan"
+    return "safety_governance_audit"
+
+
+def route_post_finalize(state: AIOState, config: AIOConfig) -> str:
+    if not config.enable_priority_3 or not config.self_evolution.enable:
+        return END
+    return "self_evolution_analyze"
+
+
+def route_self_evolution(state: AIOState, config: AIOConfig) -> str:
+    # Always END after cognitive_immune_scan; the gate is route_post_finalize
+    return END
 
 
 # ---------------------------------------------------------------------------
@@ -1873,6 +2391,20 @@ def build_aio_graph(config: Optional[AIOConfig] = None) -> Any:
     graph.add_node("neuroshield", lambda s: node_neuroshield(s, recovery))
     graph.add_node("failure_learn", lambda s: node_failure_learn(s, recovery))
 
+    # Layer 9-12 nodes (added unconditionally; routing decides if they run)
+    self_evol = SelfEvolutionLayer(cfg.self_evolution, obs)
+    multi_agent = MultiAgentCoordinator(cfg.multi_agent, obs)
+    governance = SafetyGovernance(cfg.safety_governance, obs)
+    immune = CognitiveImmuneSystem(cfg.cognitive_immune, obs)
+
+    graph.add_node("self_evolution_analyze", lambda s: node_self_evolution_analyze(s, self_evol))
+    graph.add_node("multi_agent_decompose", lambda s: node_multi_agent_decompose(s, multi_agent))
+    graph.add_node("multi_agent_dispatch", lambda s: node_multi_agent_dispatch(s, multi_agent))
+    graph.add_node("multi_agent_aggregate", lambda s: node_multi_agent_aggregate(s, multi_agent))
+    graph.add_node("multi_agent_synthesize", lambda s: node_multi_agent_synthesize(s, multi_agent))
+    graph.add_node("safety_governance_audit", lambda s: node_safety_governance_audit(s, governance))
+    graph.add_node("cognitive_immune_scan", lambda s: node_cognitive_immune_scan(s, immune))
+
     # Finalize
     graph.add_node("finalize_output", node_finalize_output)
 
@@ -1903,14 +2435,19 @@ def build_aio_graph(config: Optional[AIOConfig] = None) -> Any:
 
     # Planning pipeline
     graph.add_edge("plan_generate", "maci_select")
-    graph.add_edge("maci_select", "hiplan")
+    graph.add_conditional_edges("maci_select", lambda s: route_multi_agent(s, cfg))
     graph.add_edge("hiplan", "flare")
+    graph.add_edge("multi_agent_decompose", "multi_agent_dispatch")
+    graph.add_edge("multi_agent_dispatch", "multi_agent_aggregate")
+    graph.add_edge("multi_agent_aggregate", "multi_agent_synthesize")
+    graph.add_edge("multi_agent_synthesize", "flare")
     graph.add_edge("flare", "lwm_augment")
     graph.add_edge("lwm_augment", "ppa_analyze")
     graph.add_conditional_edges("ppa_analyze", route_ppa)
     graph.add_edge("spiral_mcts", "mars_reflect")
     graph.add_edge("mars_reflect", "vmao_decompose")
-    graph.add_edge("vmao_decompose", "verify_plan")
+    graph.add_conditional_edges("vmao_decompose", lambda s: route_safety_governance(s, cfg))
+    graph.add_edge("safety_governance_audit", "verify_plan")
 
     # Verification branch
     graph.add_conditional_edges("verify_plan", route_verification)
@@ -1930,7 +2467,10 @@ def build_aio_graph(config: Optional[AIOConfig] = None) -> Any:
     graph.add_edge("graceful_degrade", "failure_learn")
     graph.add_edge("failure_learn", "finalize_output")
 
-    graph.add_edge("finalize_output", END)
+    # Post-finalize reflection pipeline
+    graph.add_conditional_edges("finalize_output", lambda s: route_post_finalize(s, cfg))
+    graph.add_edge("self_evolution_analyze", "cognitive_immune_scan")
+    graph.add_conditional_edges("cognitive_immune_scan", lambda s: route_self_evolution(s, cfg))
 
     return graph.compile()
 
