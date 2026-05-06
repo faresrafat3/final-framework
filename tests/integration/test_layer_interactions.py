@@ -9,6 +9,7 @@ from aio_framework import (
     FailureRecovery,
     ObservabilityLayer,
     ObservabilityConfig,
+    PlanningLayer,
     node_context_ingest,
     node_context_sculpt,
     node_memory_retrieve,
@@ -41,6 +42,7 @@ def deps():
         "verifier": Verifier(cfg.verifier, obs),
         "toolgate": ToolGate(cfg.toolgate, obs),
         "recovery": FailureRecovery(cfg.failure_recovery, obs),
+        "planning": PlanningLayer(cfg.planning, obs),
     }
 
 
@@ -76,7 +78,7 @@ class TestLayerInteractions:
         state = make_initial_state("echo hello")
         state = node_context_ingest(state, deps["ctx"])
         state = node_context_sculpt(state, deps["ctx"])
-        state = node_plan_generate(state)
+        state = node_plan_generate(state, deps["planning"])
         state = node_verify_plan(state, deps["verifier"])
         assert route_verification(state) in {"execute_action", "debug_and_replan"}
         if route_verification(state) == "execute_action":
@@ -114,7 +116,7 @@ class TestLayerInteractions:
         state = node_memory_verify(state, deps["mem"])
         state = node_memory_store(state, deps["mem"])
         state = node_memory_consolidate(state, deps["mem"])
-        state = node_plan_generate(state)
+        state = node_plan_generate(state, deps["planning"])
         state = node_verify_plan(state, deps["verifier"])
         state = node_execute_action(state, deps["toolgate"])
         state = node_failure_assess(state, deps["recovery"])

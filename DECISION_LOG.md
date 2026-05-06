@@ -29,6 +29,7 @@
 | D014 | 2024-05-06 | No new Python dependencies for Priority 3 | Minimizes environment drift, keeps `requirements.txt` stable | Simulated multi-agent dispatch instead of real agent framework | Active |
 | D015 | 2024-05-06 | Create SESSION_START.md, PROJECT_STATE.md, DECISION_LOG.md | Prevents context loss between development sessions | Three additional files to maintain; updates required after significant changes | Active |
 | D016 | 2024-05-06 | Integrate `sentence-transformers` real embeddings behind `ENABLE_REAL_EMBEDDINGS` flag | Production retrieval accuracy requires real vectors; deterministic pseudo-embeddings must remain the default for standalone testing | Adds optional dependency `sentence-transformers>=2.2.0`; fallback to pseudo-embeddings when flag is off or model fails to load; dimension-agnostic cosine similarity means no downstream changes | Active |
+| D017 | 2024-05-07 | Integrate optional LLM-powered planning behind `ENABLE_LLM_PLANNING` flag with optional dependency guards | Production planning quality benefits from LLM reasoning; heuristic planners must remain for standalone testing and graceful degradation | Adds `LLMPlanner` class inside single-file core; intercepts base plan generation, HiPlan decomposition, FLARE lookahead, and PPA pitfall analysis; any LLM failure (missing import, missing API key, timeout, bad JSON) logs warning and falls back to heuristic planner without crashing graph; `langchain-openai` and `langchain-anthropic` remain optional commented lines in `requirements.txt` | Active |
 
 ---
 
@@ -40,4 +41,4 @@
 
 ---
 
-*Last updated: Priority 3 completion*
+*Last updated: LLM-based planning integration (Priority 4 step)*
