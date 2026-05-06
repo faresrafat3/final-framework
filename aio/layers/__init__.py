@@ -1,6 +1,13 @@
 from .observability import ObservabilityLayer, _NullContext
 from .context import ContextManager
 from .memory import MemoryBridge
+from .memory_backends import (
+    BaseMemoryBackend,
+    InMemoryBackend,
+    RedisBackend,
+    PostgresBackend,
+    HybridBackend,
+)
 from .planning import (
     PlanningLayer,
     HiPlanPlanner,
@@ -28,6 +35,11 @@ __all__ = [
     "_NullContext",
     "ContextManager",
     "MemoryBridge",
+    "BaseMemoryBackend",
+    "InMemoryBackend",
+    "RedisBackend",
+    "PostgresBackend",
+    "HybridBackend",
     "PlanningLayer",
     "HiPlanPlanner",
     "FLARELookahead",

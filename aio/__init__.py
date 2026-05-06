@@ -25,6 +25,8 @@ from .config.deps import (
     LANGCHAIN_OPENAI_AVAILABLE,
     LANGCHAIN_ANTHROPIC_AVAILABLE,
     LANGCHAIN_CHAT_AVAILABLE,
+    REDIS_AVAILABLE,
+    PSYCOPG2_AVAILABLE,
     DEFAULT_OTEL_ENDPOINT,
     DEFAULT_SERVICE_NAME,
     DEFAULT_PROMETHEUS_PORT,
@@ -43,6 +45,13 @@ from .config.deps import (
 from .layers.observability import ObservabilityLayer, _NullContext
 from .layers.context import ContextManager
 from .layers.memory import MemoryBridge
+from .layers.memory_backends import (
+    BaseMemoryBackend,
+    InMemoryBackend,
+    RedisBackend,
+    PostgresBackend,
+    HybridBackend,
+)
 from .layers.planning import (
     PlanningLayer,
     HiPlanPlanner,
@@ -149,6 +158,8 @@ __all__ = [
     "LANGCHAIN_OPENAI_AVAILABLE",
     "LANGCHAIN_ANTHROPIC_AVAILABLE",
     "LANGCHAIN_CHAT_AVAILABLE",
+    "REDIS_AVAILABLE",
+    "PSYCOPG2_AVAILABLE",
     "DEFAULT_OTEL_ENDPOINT",
     "DEFAULT_SERVICE_NAME",
     "DEFAULT_PROMETHEUS_PORT",
@@ -167,6 +178,11 @@ __all__ = [
     "_NullContext",
     "ContextManager",
     "MemoryBridge",
+    "BaseMemoryBackend",
+    "InMemoryBackend",
+    "RedisBackend",
+    "PostgresBackend",
+    "HybridBackend",
     "PlanningLayer",
     "HiPlanPlanner",
     "FLARELookahead",
