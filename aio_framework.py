@@ -1,11 +1,13 @@
 #!/usr/bin/env python3
 """
-AIO Framework — Priority 2 Implementation
+AIO Framework — Priority 3 Implementation
 Layers: 0 (Infrastructure), 1 (Context), 2 (Memory), 3 (Planning & Anti-Myopia),
         4 (Proactive Curiosity), 5 (Verification), 6 (Tool-Use Optimization),
-        7 (Execution), 8 (Failure Recovery)
+        7 (Execution), 8 (Failure Recovery), 9 (Self-Evolution),
+        10 (Multi-Agent Coordination), 11 (Safety & Governance),
+        12 (Cognitive Immune System)
 
-A single-file, production-grade LangGraph StateGraph with all Priority 1 and 2
+A single-file, production-grade LangGraph StateGraph with all 13 layers,
 nodes, edges, conditional routing, and supporting classes.
 """
 
