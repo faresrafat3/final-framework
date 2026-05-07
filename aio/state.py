@@ -142,6 +142,11 @@ class AIOState(TypedDict, total=False):
     neuro_symbolic_grounding: Optional[List[Dict[str, Any]]]
     neuro_symbolic_verdict: Optional[Dict[str, Any]]
     neuro_symbolic_confidence: Optional[float]
+    # Deep Neuro-Symbolic Integration (Priority 9)
+    symbolic_constraints: Optional[Dict[str, Any]]
+    symbolic_solver_result: Optional[Dict[str, Any]]
+    symbolic_plan_validated: Optional[bool]
+    symbolic_verdict: Optional[Dict[str, Any]]
 
 
 def make_initial_state(raw_input: str = "", session_id: Optional[str] = None) -> AIOState:
@@ -224,4 +229,8 @@ def make_initial_state(raw_input: str = "", session_id: Optional[str] = None) ->
         "neuro_symbolic_grounding": None,
         "neuro_symbolic_verdict": None,
         "neuro_symbolic_confidence": None,
+        "symbolic_constraints": None,
+        "symbolic_solver_result": None,
+        "symbolic_plan_validated": None,
+        "symbolic_verdict": None,
         }

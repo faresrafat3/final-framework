@@ -37,6 +37,15 @@ from .neuro_symbolic import (
     SymbolicRule,
     KnowledgeGraph,
     FormalVerifier,
+    ConstraintModel,
+    SolverResult,
+    SymbolicSolverBackend,
+    Z3Backend,
+    ORToolsBackend,
+    NoOpBackend,
+    NeuroSymbolicBridge,
+    SymbolicPlanner,
+    PlanVerifier,
 )
 
 __all__ = [
@@ -81,4 +90,13 @@ __all__ = [
     "SymbolicRule",
     "KnowledgeGraph",
     "FormalVerifier",
+    "ConstraintModel",
+    "SolverResult",
+    "SymbolicSolverBackend",
+    "Z3Backend",
+    "ORToolsBackend",
+    "NoOpBackend",
+    "NeuroSymbolicBridge",
+    "SymbolicPlanner",
+    "PlanVerifier",
 ]

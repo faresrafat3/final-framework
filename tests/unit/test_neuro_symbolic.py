@@ -1,4 +1,5 @@
 import pytest
+from unittest.mock import MagicMock, patch
 
 from aio_framework import (
     NeuroSymbolicMandate,
@@ -10,6 +11,13 @@ from aio_framework import (
     SymbolicRule,
     KnowledgeGraph,
     FormalVerifier,
+    ConstraintModel,
+    SolverResult,
+    SymbolicSolverBackend,
+    NoOpBackend,
+    NeuroSymbolicBridge,
+    SymbolicPlanner,
+    PlanVerifier,
 )
 
 
@@ -18,6 +26,11 @@ def ns_layer():
     obs = ObservabilityLayer(ObservabilityConfig(log_level="DEBUG", prometheus_port=0))
     cfg = NeuroSymbolicConfig(enable=True, enable_llm_parsing=False)
     return NeuroSymbolicMandate(cfg, obs)
+
+
+@pytest.fixture
+def obs():
+    return ObservabilityLayer(ObservabilityConfig(log_level="DEBUG", prometheus_port=0))
 
 
 class TestSymbolicRule:
@@ -217,3 +230,169 @@ class TestNeuroSymbolicMandate:
         layer = NeuroSymbolicMandate(cfg, obs)
         # Should not raise and default rules still present
         assert len(layer.engine.rules) >= 4
+
+
+# ---------------------------------------------------------------------------
+# Deep Neuro-Symbolic Integration — Priority 9
+# ---------------------------------------------------------------------------
+
+class TestSolverBackends:
+    def test_noop_backend_returns_unknown(self):
+        backend = NoOpBackend()
+        result = backend.solve(ConstraintModel())
+        assert result.status == "unknown"
+
+    def test_z3_backend_sat(self):
+        try:
+            from aio.layers.neuro_symbolic import Z3Backend
+        except Exception:
+            pytest.skip("z3 not available")
+        backend = Z3Backend()
+        model = ConstraintModel(
+            variables={"x": {"type": "int", "low": 0, "high": 10}},
+            constraints=[{"type": "linear", "terms": {"x": 1}, "op": "<=", "rhs": 5}],
+        )
+        result = backend.solve(model, timeout_ms=5000)
+        assert result.status == "sat"
+        assert result.model is not None
+
+    def test_z3_backend_unsat(self):
+        try:
+            from aio.layers.neuro_symbolic import Z3Backend
+        except Exception:
+            pytest.skip("z3 not available")
+        backend = Z3Backend()
+        model = ConstraintModel(
+            variables={"x": {"type": "int", "low": 0, "high": 10}},
+            constraints=[
+                {"type": "linear", "terms": {"x": 1}, "op": ">=", "rhs": 20},
+            ],
+        )
+        result = backend.solve(model, timeout_ms=5000)
+        assert result.status == "unsat"
+
+    def test_ortools_backend_sat(self):
+        try:
+            from aio.layers.neuro_symbolic import ORToolsBackend
+        except Exception:
+            pytest.skip("ortools not available")
+        backend = ORToolsBackend()
+        model = ConstraintModel(
+            variables={"x": {"type": "int", "low": 0, "high": 10}},
+            constraints=[{"type": "linear", "terms": {"x": 1}, "op": "<=", "rhs": 5}],
+        )
+        result = backend.solve(model, timeout_ms=5000)
+        assert result.status == "sat"
+        assert result.model is not None
+
+    def test_ortools_backend_unsat(self):
+        try:
+            from aio.layers.neuro_symbolic import ORToolsBackend
+        except Exception:
+            pytest.skip("ortools not available")
+        backend = ORToolsBackend()
+        model = ConstraintModel(
+            variables={"x": {"type": "int", "low": 0, "high": 10}},
+            constraints=[
+                {"type": "linear", "terms": {"x": 1}, "op": ">=", "rhs": 20},
+            ],
+        )
+        result = backend.solve(model, timeout_ms=5000)
+        assert result.status == "unsat"
+
+
+class TestNeuroSymbolicBridge:
+    def test_forward_from_plan(self, obs):
+        cfg = NeuroSymbolicConfig(enable_symbolic_planning=True)
+        bridge = NeuroSymbolicBridge(cfg, obs)
+        state = make_initial_state("test")
+        state["plan"] = "1) step one 2) step two"
+        cm = bridge.forward(state)
+        assert "step_count" in cm.variables
+        assert any(c.get("type") == "linear" for c in cm.constraints)
+
+    def test_forward_from_vmao_dag(self, obs):
+        cfg = NeuroSymbolicConfig(enable_symbolic_planning=True)
+        bridge = NeuroSymbolicBridge(cfg, obs)
+        state = make_initial_state("test")
+        state["vmao_dag"] = [
+            {"id": "node-0", "description": "a", "dependencies": []},
+            {"id": "node-1", "description": "b", "dependencies": ["node-0"]},
+        ]
+        cm = bridge.forward(state)
+        assert "node-0" in cm.variables
+        assert any(c.get("type") == "ordering" for c in cm.constraints)
+
+    def test_backward_sat(self, obs):
+        cfg = NeuroSymbolicConfig()
+        bridge = NeuroSymbolicBridge(cfg, obs)
+        result = SolverResult(status="sat", explanation="ok")
+        text = bridge.backward(result)
+        assert "passed" in text.lower()
+
+    def test_backward_unsat(self, obs):
+        cfg = NeuroSymbolicConfig()
+        bridge = NeuroSymbolicBridge(cfg, obs)
+        result = SolverResult(status="unsat", counterexample={"x": 10}, explanation="conflict")
+        text = bridge.backward(result)
+        assert "failed" in text.lower()
+
+
+class TestSymbolicPlanner:
+    def test_sat_path_marks_validated(self, obs):
+        cfg = NeuroSymbolicConfig(enable_symbolic_planning=True)
+        planner = SymbolicPlanner(cfg, obs)
+        state = make_initial_state("test")
+        state["plan"] = "1) step one 2) step two"
+        state = planner.plan(state)
+        assert state["symbolic_plan_validated"] is True
+        assert state["symbolic_solver_result"]["status"] == "sat"
+
+    def test_unsat_path_annotates_plan(self, obs):
+        cfg = NeuroSymbolicConfig(enable_symbolic_planning=True, max_plan_length=5)
+        planner = SymbolicPlanner(cfg, obs)
+        state = make_initial_state("test")
+        state["plan"] = "this plan is way too long for the bound"
+        state = planner.plan(state)
+        assert state["symbolic_plan_validated"] is False
+        assert "[SYMBOLIC BLOCKED]" in state["plan"]
+
+    def test_error_path_leaves_plan_unchanged(self, obs):
+        cfg = NeuroSymbolicConfig(enable_symbolic_planning=True)
+        planner = SymbolicPlanner(cfg, obs)
+        # Force backend to raise
+        planner.bridge.backend = MagicMock()
+        planner.bridge.backend.solve.side_effect = RuntimeError("boom")
+        state = make_initial_state("test")
+        state["plan"] = "1) step"
+        original_plan = state["plan"]
+        state = planner.plan(state)
+        assert state.get("plan") == original_plan
+
+
+class TestPlanVerifier:
+    def test_sat_verdict(self, obs):
+        cfg = NeuroSymbolicConfig(enable_symbolic_planning=True)
+        pv = PlanVerifier(cfg, obs)
+        state = make_initial_state("test")
+        state["plan"] = "1) step one 2) step two"
+        verdict = pv.verify(state)
+        assert verdict["satisfiable"] is True
+        assert state["symbolic_verdict"] is not None
+
+    def test_unsat_verdict(self, obs):
+        cfg = NeuroSymbolicConfig(enable_symbolic_planning=True, max_plan_length=5)
+        pv = PlanVerifier(cfg, obs)
+        state = make_initial_state("test")
+        state["plan"] = "this plan is way too long for the bound"
+        verdict = pv.verify(state)
+        assert verdict["satisfiable"] is False
+        assert any(c["rule"] == "symbolic_satisfiability" and not c["passed"] for c in verdict["checks"])
+
+    def test_counterexample_present_on_unsat(self, obs):
+        cfg = NeuroSymbolicConfig(enable_symbolic_planning=True, max_plan_length=5)
+        pv = PlanVerifier(cfg, obs)
+        state = make_initial_state("test")
+        state["plan"] = "this plan is way too long for the bound"
+        verdict = pv.verify(state)
+        assert "explanation" in verdict

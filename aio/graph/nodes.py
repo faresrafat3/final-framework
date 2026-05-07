@@ -37,6 +37,7 @@ _LAYER_MAP: dict[str, tuple[str, int]] = {
     "spiral_mcts": ("Layer 3 — Planning", 3),
     "mars_reflect": ("Layer 3 — Planning", 3),
     "vmao_decompose": ("Layer 3 — Planning", 3),
+    "symbolic_plan": ("Layer 3 — Planning", 3),
     "curiosity_intrinsic": ("Layer 4 — Curiosity", 4),
     "curiosity_seek": ("Layer 4 — Curiosity", 4),
     "curiosity_serendipity": ("Layer 4 — Curiosity", 4),
@@ -185,6 +186,10 @@ def node_mars_reflect(state: AIOState, planning: PlanningLayer, streaming_manage
 
 def node_vmao_decompose(state: AIOState, planning: PlanningLayer, streaming_manager: Any = None) -> AIOState:
     return planning.run_vmao_decompose(state)
+
+
+def node_symbolic_plan(state: AIOState, planning: PlanningLayer, streaming_manager: Any = None) -> AIOState:
+    return planning.run_symbolic_plan(state)
 
 
 # Layer 4 nodes

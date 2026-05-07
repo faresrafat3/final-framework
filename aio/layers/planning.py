@@ -13,9 +13,10 @@ from ..config.deps import (
     LANGCHAIN_OPENAI_AVAILABLE,
     LANGCHAIN_ANTHROPIC_AVAILABLE,
 )
-from ..config.models import PlanningConfig
+from ..config.models import PlanningConfig, NeuroSymbolicConfig
 from .observability import ObservabilityLayer
 from ..state import AIOState
+from .neuro_symbolic import SymbolicPlanner
 
 if LANGCHAIN_OPENAI_AVAILABLE:
     from langchain_openai import ChatOpenAI
@@ -381,7 +382,7 @@ class PlanningLayer:
         observability: Shared observability layer for spans and metrics.
     """
 
-    def __init__(self, config: PlanningConfig, observability: ObservabilityLayer) -> None:
+    def __init__(self, config: PlanningConfig, observability: ObservabilityLayer, neuro_symbolic_config: Optional[NeuroSymbolicConfig] = None) -> None:
         self.config = config
         self.obs = observability
         self.hiplan = HiPlanPlanner(config, observability)
@@ -396,6 +397,10 @@ class PlanningLayer:
             self._llm_planner: Optional[LLMPlanner] = LLMPlanner(config, observability)
         else:
             self._llm_planner = None
+        if neuro_symbolic_config is not None and neuro_symbolic_config.enable_symbolic_planning:
+            self._symbolic_planner: Optional[SymbolicPlanner] = SymbolicPlanner(neuro_symbolic_config, observability)
+        else:
+            self._symbolic_planner = None
 
     def _heuristic_plan(self, state: AIOState) -> str:
         intent = state.get("intent", "general")
@@ -562,3 +567,21 @@ class PlanningLayer:
         """
         state["vmao_dag"] = self.vmao.replan(state)
         return state
+
+    def run_symbolic_plan(self, state: AIOState) -> AIOState:
+        """Run symbolic constraint validation on the current plan.
+
+        Args:
+            state: Current :class:`AIOState`.
+
+        Returns:
+            Mutated state with symbolic validation results.
+        """
+        if self._symbolic_planner is None:
+            return state
+        try:
+            return self._symbolic_planner.plan(state)
+        except Exception as exc:
+            self.obs.log(logging.WARNING, f"SymbolicPlanner failed, continuing unchanged: {exc}")
+            self.obs.count_node("symbolic_planner.plan", "fallback")
+            return state

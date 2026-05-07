@@ -39,6 +39,7 @@ from .nodes import (
     node_spiral_mcts,
     node_mars_reflect,
     node_vmao_decompose,
+    node_symbolic_plan,
     node_curiosity_intrinsic,
     node_curiosity_seek,
     node_curiosity_serendipity,
@@ -178,9 +179,9 @@ def build_aio_graph(
     obs = observability_layer or ObservabilityLayer(cfg.observability)
     ctx_mgr = ContextManager(cfg.context, obs)
     mem = MemoryBridge(cfg.memory, obs)
-    planning = PlanningLayer(cfg.planning, obs)
+    planning = PlanningLayer(cfg.planning, obs, neuro_symbolic_config=cfg.neuro_symbolic)
     curiosity = CuriosityEngine(cfg.curiosity, obs)
-    verifier = Verifier(cfg.verifier, obs)
+    verifier = Verifier(cfg.verifier, obs, neuro_symbolic_config=cfg.neuro_symbolic)
     toolopt = ToolOptimizer(cfg.tool_optimizer, obs)
     mcp_client: Optional[Any] = None
     if cfg.mcp.enable:
@@ -227,6 +228,7 @@ def build_aio_graph(
     _add("spiral_mcts", lambda s: node_spiral_mcts(s, planning))
     _add("mars_reflect", lambda s: node_mars_reflect(s, planning))
     _add("vmao_decompose", lambda s: node_vmao_decompose(s, planning))
+    _add("symbolic_plan", lambda s: node_symbolic_plan(s, planning))
 
     # Layer 5
     _add("verify_plan", lambda s: node_verify_plan(s, verifier))
@@ -310,7 +312,8 @@ def build_aio_graph(
     graph.add_conditional_edges("ppa_analyze", route_ppa)
     graph.add_edge("spiral_mcts", "mars_reflect")
     graph.add_edge("mars_reflect", "vmao_decompose")
-    graph.add_conditional_edges("vmao_decompose", lambda s: route_safety_governance(s, cfg))
+    graph.add_edge("vmao_decompose", "symbolic_plan")
+    graph.add_conditional_edges("symbolic_plan", lambda s: route_safety_governance(s, cfg))
     graph.add_edge("safety_governance_audit", "neuro_symbolic_parse")
 
     # Neuro-Symbolic branch (runs before verification when enabled)

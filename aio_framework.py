@@ -86,6 +86,7 @@ from aio import (
     node_spiral_mcts,
     node_mars_reflect,
     node_vmao_decompose,
+    node_symbolic_plan,
     node_curiosity_intrinsic,
     node_curiosity_seek,
     node_curiosity_serendipity,

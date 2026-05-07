@@ -137,12 +137,16 @@ class VerifierConfig(BaseModel):
         formal_checks_enabled: Whether deterministic formal rules are evaluated.
         llm_critique_enabled: Whether LLM-based critique is enabled.
         debug_trace_enabled: Whether debug hypotheses are generated on failure.
+        symbolic_judge_weight: Contribution weight of symbolic verification to the ensemble score.
+        symbolic_judge_enabled: Whether symbolic verification is included in the judge ensemble.
     """
 
     ensemble_threshold: float = 0.85
     formal_checks_enabled: bool = True
     llm_critique_enabled: bool = True
     debug_trace_enabled: bool = True
+    symbolic_judge_weight: float = 0.25
+    symbolic_judge_enabled: bool = Field(default_factory=lambda: os.getenv("ENABLE_SYMBOLIC_PLANNING", "false").lower() == "true")
 
 
 class ToolOptimizerConfig(BaseModel):
@@ -218,6 +222,9 @@ class NeuroSymbolicConfig(BaseModel):
         max_inference_depth: Maximum depth for symbolic forward-chaining inference.
         max_plan_length: Upper bound on plan length for formal checks.
         custom_rules_json: Optional JSON array of custom symbolic rules.
+        enable_symbolic_planning: Whether to translate plans into formal constraints and verify with an SMT solver before execution.
+        symbolic_engine: Solver backend — ``z3`` or ``ortools``.
+        symbolic_timeout_ms: Solver timeout in milliseconds.
     """
 
     enable: bool = Field(default_factory=lambda: os.getenv("NEURO_SYMBOLIC_ENABLE", "true").lower() == "true")
@@ -229,6 +236,9 @@ class NeuroSymbolicConfig(BaseModel):
     max_inference_depth: int = 5
     max_plan_length: int = 5000
     custom_rules_json: Optional[str] = Field(default_factory=lambda: os.getenv("NEURO_SYMBOLIC_CUSTOM_RULES", None))
+    enable_symbolic_planning: bool = Field(default_factory=lambda: os.getenv("ENABLE_SYMBOLIC_PLANNING", "false").lower() == "true")
+    symbolic_engine: str = Field(default_factory=lambda: os.getenv("SYMBOLIC_ENGINE", "z3"))
+    symbolic_timeout_ms: int = Field(default_factory=lambda: int(os.getenv("SYMBOLIC_TIMEOUT_MS", "5000")))
 
 
 class SelfEvolutionConfig(BaseModel):

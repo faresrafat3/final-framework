@@ -111,6 +111,20 @@ except Exception:  # pragma: no cover
     jinja2 = None  # type: ignore[misc]
     JINJA2_AVAILABLE = False
 
+try:
+    import z3
+    Z3_AVAILABLE = True
+except Exception:  # pragma: no cover
+    z3 = None  # type: ignore[misc]
+    Z3_AVAILABLE = False
+
+try:
+    from ortools.sat.python import cp_model
+    ORTOOLS_AVAILABLE = True
+except Exception:  # pragma: no cover
+    cp_model = None  # type: ignore[misc]
+    ORTOOLS_AVAILABLE = False
+
 
 # ---------------------------------------------------------------------------
 # Constants & Configuration
@@ -134,3 +148,6 @@ DEFAULT_MCP_ENABLE = os.getenv("MCP_ENABLE", "false").lower() == "true"
 DEFAULT_MCP_SERVERS_JSON = os.getenv("MCP_SERVERS", "[]")
 DEFAULT_MCP_TIMEOUT_SECONDS = int(os.getenv("MCP_TIMEOUT_SECONDS", "30"))
 DEFAULT_NEURO_SYMBOLIC_ENABLE = os.getenv("NEURO_SYMBOLIC_ENABLE", "true").lower() == "true"
+ENABLE_SYMBOLIC_PLANNING = os.getenv("ENABLE_SYMBOLIC_PLANNING", "false").lower() == "true"
+SYMBOLIC_ENGINE = os.getenv("SYMBOLIC_ENGINE", "z3")
+SYMBOLIC_TIMEOUT_MS = int(os.getenv("SYMBOLIC_TIMEOUT_MS", "5000"))

@@ -18,6 +18,7 @@ from aio_framework import (
     node_memory_store,
     node_memory_consolidate,
     node_plan_generate,
+    node_symbolic_plan,
     node_verify_plan,
     node_execute_action,
     node_failure_assess,
@@ -39,10 +40,10 @@ def deps():
         "obs": obs,
         "ctx": ContextManager(cfg.context, obs),
         "mem": MemoryBridge(cfg.memory, obs),
-        "verifier": Verifier(cfg.verifier, obs),
+        "verifier": Verifier(cfg.verifier, obs, neuro_symbolic_config=cfg.neuro_symbolic),
         "toolgate": ToolGate(cfg.toolgate, obs),
         "recovery": FailureRecovery(cfg.failure_recovery, obs),
-        "planning": PlanningLayer(cfg.planning, obs),
+        "planning": PlanningLayer(cfg.planning, obs, neuro_symbolic_config=cfg.neuro_symbolic),
     }
 
 
@@ -79,6 +80,7 @@ class TestLayerInteractions:
         state = node_context_ingest(state, deps["ctx"])
         state = node_context_sculpt(state, deps["ctx"])
         state = node_plan_generate(state, deps["planning"])
+        state = node_symbolic_plan(state, deps["planning"])
         state = node_verify_plan(state, deps["verifier"])
         assert route_verification(state) in {"execute_action", "debug_and_replan"}
         if route_verification(state) == "execute_action":
@@ -117,8 +119,53 @@ class TestLayerInteractions:
         state = node_memory_store(state, deps["mem"])
         state = node_memory_consolidate(state, deps["mem"])
         state = node_plan_generate(state, deps["planning"])
+        state = node_symbolic_plan(state, deps["planning"])
         state = node_verify_plan(state, deps["verifier"])
         state = node_execute_action(state, deps["toolgate"])
         state = node_failure_assess(state, deps["recovery"])
         state = node_finalize_output(state)
         assert state["output"] is not None
+
+
+class TestSymbolicPipeline:
+    def test_symbolic_plan_sat_path(self):
+        obs = ObservabilityLayer(ObservabilityConfig(log_level="DEBUG", prometheus_port=0))
+        cfg = AIOConfig()
+        cfg.neuro_symbolic.enable_symbolic_planning = True
+        planning = PlanningLayer(cfg.planning, obs, neuro_symbolic_config=cfg.neuro_symbolic)
+        verifier = Verifier(cfg.verifier, obs, neuro_symbolic_config=cfg.neuro_symbolic)
+        state = make_initial_state("echo hello")
+        state = node_plan_generate(state, planning)
+        state = node_symbolic_plan(state, planning)
+        assert state.get("symbolic_plan_validated") is not None
+        assert state.get("symbolic_constraints") is not None
+        assert state.get("symbolic_solver_result") is not None
+        state = node_verify_plan(state, verifier)
+        assert state.get("symbolic_verdict") is not None
+        vresult = state["verification_result"]
+        assert "ensemble_score" in vresult
+
+    def test_symbolic_plan_unsat_annotates(self):
+        obs = ObservabilityLayer(ObservabilityConfig(log_level="DEBUG", prometheus_port=0))
+        cfg = AIOConfig()
+        cfg.neuro_symbolic.enable_symbolic_planning = True
+        cfg.neuro_symbolic.max_plan_length = 5
+        planning = PlanningLayer(cfg.planning, obs, neuro_symbolic_config=cfg.neuro_symbolic)
+        state = make_initial_state("echo hello")
+        state["plan"] = "this plan is way too long for the bound"
+        state = node_symbolic_plan(state, planning)
+        assert state["symbolic_plan_validated"] is False
+        assert "[SYMBOLIC BLOCKED]" in state["plan"]
+
+    def test_ensemble_score_reflects_symbolic_result(self):
+        obs = ObservabilityLayer(ObservabilityConfig(log_level="DEBUG", prometheus_port=0))
+        cfg = AIOConfig()
+        cfg.neuro_symbolic.enable_symbolic_planning = True
+        planning = PlanningLayer(cfg.planning, obs, neuro_symbolic_config=cfg.neuro_symbolic)
+        verifier = Verifier(cfg.verifier, obs, neuro_symbolic_config=cfg.neuro_symbolic)
+        state = make_initial_state("echo hello")
+        state = node_plan_generate(state, planning)
+        state = node_symbolic_plan(state, planning)
+        state = node_verify_plan(state, verifier)
+        score = state["verification_result"]["ensemble_score"]
+        assert 0.0 <= score <= 1.0
