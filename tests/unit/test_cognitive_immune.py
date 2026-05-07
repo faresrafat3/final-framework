@@ -144,15 +144,14 @@ class TestCognitiveImmuneSystem:
             return conn
 
         mock_conn = _make_conn(baseline)
-        with patch("psycopg2.connect", return_value=mock_conn):
-            with patch.object(layer._learning, "_conn", mock_conn):
-                state = make_initial_state("test")
-                state["failure_count"] = 10
-                state["safety_violations"] = []
-                state["working_memory"] = []
-                state = layer.scan(state)
-                assert state["learned_anomaly_score"] > 0.0
-                assert state["anomaly_score"] >= state["learned_anomaly_score"]
+        with patch.object(layer._learning, "_conn", mock_conn):
+            state = make_initial_state("test")
+            state["failure_count"] = 10
+            state["safety_violations"] = []
+            state["working_memory"] = []
+            state = layer.scan(state)
+            assert state["learned_anomaly_score"] > 0.0
+            assert state["anomaly_score"] >= state["learned_anomaly_score"]
         layer.close()
 
     def test_learned_insufficient_samples_returns_zero(self):
@@ -177,12 +176,11 @@ class TestCognitiveImmuneSystem:
             return conn
 
         mock_conn = _make_conn()
-        with patch("psycopg2.connect", return_value=mock_conn):
-            with patch.object(layer._learning, "_conn", mock_conn):
-                state = make_initial_state("test")
-                state["failure_count"] = 10
-                state["safety_violations"] = []
-                state["working_memory"] = []
-                state = layer.scan(state)
-                assert state["learned_anomaly_score"] == 0.0
+        with patch.object(layer._learning, "_conn", mock_conn):
+            state = make_initial_state("test")
+            state["failure_count"] = 10
+            state["safety_violations"] = []
+            state["working_memory"] = []
+            state = layer.scan(state)
+            assert state["learned_anomaly_score"] == 0.0
         layer.close()

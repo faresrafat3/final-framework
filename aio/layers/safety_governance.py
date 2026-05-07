@@ -9,7 +9,13 @@ from ..state import AIOState
 
 
 class SafetyGovernance:
-    """Per-turn audit, constitutional compliance, governance voting, and decision recording."""
+    """Layer 11 — Per-turn audit, constitutional compliance, governance voting, and decision recording.
+
+    Args:
+        config: Layer 11 configuration (audit level, enforcement flags).
+        observability: Shared observability layer for spans and metrics.
+        store: Optional :class:`aio.dashboard.store.AuditStore` for persistent decision logging.
+    """
 
     def __init__(
         self,
@@ -23,6 +29,14 @@ class SafetyGovernance:
         self._decisions: List[Dict[str, Any]] = []
 
     def audit(self, state: AIOState) -> AIOState:
+        """Append a per-turn audit entry to the state's audit trail.
+
+        Args:
+            state: Current :class:`AIOState`.
+
+        Returns:
+            Mutated state with ``audit_trail`` extended.
+        """
         start = time.time()
         with self.obs.start_span("governance.audit", state.get("trace_id")):
             entry = {
@@ -46,6 +60,14 @@ class SafetyGovernance:
         return filled > 0 and (filled / total) > 0.9
 
     def check_compliance(self, state: AIOState) -> AIOState:
+        """Evaluate constitutional compliance and populate violations.
+
+        Args:
+            state: Current :class:`AIOState`.
+
+        Returns:
+            Mutated state with ``compliance_violations``.
+        """
         start = time.time()
         with self.obs.start_span("governance.compliance", state.get("trace_id")):
             violations: List[Dict[str, Any]] = []
@@ -63,6 +85,14 @@ class SafetyGovernance:
         return state
 
     def governance_vote(self, state: AIOState) -> AIOState:
+        """Run a simplified governance vote based on compliance violations.
+
+        Args:
+            state: Current :class:`AIOState`.
+
+        Returns:
+            Mutated state with ``governance_result``.
+        """
         start = time.time()
         with self.obs.start_span("governance.vote", state.get("trace_id")):
             violations = state.get("compliance_violations", []) or []
@@ -82,6 +112,14 @@ class SafetyGovernance:
         return state
 
     def record_decision(self, state: AIOState) -> AIOState:
+        """Persist the governance decision to the optional store and local buffer.
+
+        Args:
+            state: Current :class:`AIOState`.
+
+        Returns:
+            Mutated state (``audit_trail`` may be updated via store ingestion).
+        """
         start = time.time()
         with self.obs.start_span("governance.record", state.get("trace_id")):
             decision = {

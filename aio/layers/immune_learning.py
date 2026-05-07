@@ -16,6 +16,10 @@ class ImmuneLearningEngine:
 
     Stores historical immune snapshots in PostgreSQL, computes rolling
     statistical baselines, and derives a learned anomaly score from Z-scores.
+
+    Args:
+        config: Layer 12 configuration (learning thresholds, DB URL).
+        observability: Shared observability layer for spans and metrics.
     """
 
     _TABLE = "aio_immune_history"
@@ -124,7 +128,14 @@ class ImmuneLearningEngine:
                 pass
 
     def _rolling_stats(self, column: str) -> tuple[float, float, int]:
-        """Return (mean, std, count) for *column* over the rolling window."""
+        """Return (mean, std, count) for *column* over the rolling window.
+
+        Args:
+            column: Name of the numeric column to aggregate.
+
+        Returns:
+            A 3-tuple of (mean, standard deviation, count).
+        """
         if self._conn is None:
             return 0.0, 0.0, 0
         window = self.config.learn_rolling_window
@@ -148,6 +159,14 @@ class ImmuneLearningEngine:
         return float(mean or 0.0), float(std or 0.0), int(count or 0)
 
     def compute_anomaly_score(self, state: AIOState) -> float:
+        """Compute a learned anomaly score from rolling Z-scores.
+
+        Args:
+            state: Current :class:`AIOState`.
+
+        Returns:
+            A float in ``[0, 1]`` representing the learned anomaly contribution.
+        """
         if self._conn is None:
             return 0.0
         indicators = self._extract_indicators(state)
@@ -168,6 +187,7 @@ class ImmuneLearningEngine:
         return round(min(1.0, total_contribution), 4)
 
     def close(self) -> None:
+        """Close the PostgreSQL connection."""
         if self._conn is not None:
             try:
                 self._conn.close()

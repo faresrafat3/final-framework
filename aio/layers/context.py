@@ -9,7 +9,12 @@ from ..state import AIOState
 
 
 class ContextManager:
-    """Manages context window, BAPO attention routing, and working memory pruning."""
+    """Layer 1 — Token-aware context window, BAPO attention routing, and intent classification.
+
+    Args:
+        config: Layer 1 configuration (budgets, thresholds, attention defaults).
+        observability: Shared observability layer for spans and metrics.
+    """
 
     def __init__(self, config: ContextConfig, observability: ObservabilityLayer) -> None:
         self.config = config
@@ -17,10 +22,25 @@ class ContextManager:
 
     @staticmethod
     def approximate_token_count(text: str) -> int:
-        """Rough token count: ~4 chars per token for English-like text."""
+        """Rough token count: ~4 chars per token for English-like text.
+
+        Args:
+            text: Input string to estimate.
+
+        Returns:
+            Estimated token count (minimum ``1``).
+        """
         return max(1, len(text) // 4)
 
     def ingest(self, state: AIOState) -> AIOState:
+        """Classify intent, append the user message, and initialise the BAPO attention map.
+
+        Args:
+            state: Current :class:`AIOState`.
+
+        Returns:
+            Mutated state with ``intent``, ``turn``, ``context_window``, and ``attention_map``.
+        """
         start = time.time()
         with self.obs.start_span("context.ingest", state.get("trace_id")):
             raw = state.get("raw_input", "")
@@ -41,6 +61,16 @@ class ContextManager:
         return state
 
     def sculpt(self, state: AIOState) -> AIOState:
+        """Prune the context window until it fits inside the token budget.
+
+        Evicted messages are moved to ``working_memory`` with a timestamp.
+
+        Args:
+            state: Current :class:`AIOState`.
+
+        Returns:
+            Mutated state with updated ``context_window`` and ``context_budget``.
+        """
         start = time.time()
         with self.obs.start_span("context.sculpt", state.get("trace_id")):
             window = state.get("context_window", [])
@@ -63,7 +93,17 @@ class ContextManager:
         return state
 
     def route_attention(self, state: AIOState) -> str:
-        """Return next layer target based on BAPO attention map."""
+        """Return the next layer target based on the BAPO attention map.
+
+        When the system is ``DEGRADED`` or ``RECOVERING``, attention is
+        up-weighted toward the recovery channel.
+
+        Args:
+            state: Current :class:`AIOState`.
+
+        Returns:
+            Target layer key (``memory``, ``verify``, ``execute``, ``recover``, …).
+        """
         amap = dict(state.get("attention_map", {}))
         if not amap:
             return "memory"

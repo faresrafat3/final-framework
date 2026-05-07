@@ -24,7 +24,12 @@ logger = logging.getLogger(__name__)
 
 
 class MemoryBridge:
-    """Implements encode-verify-store-consolidate-retrieve-forget lifecycle."""
+    """Layer 2 — Dual-memory bridge implementing encode-verify-store-consolidate-retrieve-forget.
+
+    Args:
+        config: Layer 2 configuration (backend, embeddings, TTLs).
+        observability: Shared observability layer for spans and metrics.
+    """
 
     def __init__(self, config: MemoryConfig, observability: ObservabilityLayer) -> None:
         self.config = config
@@ -110,6 +115,14 @@ class MemoryBridge:
             self._keyword_index.setdefault(w, []).append(entry_id)
 
     def encode(self, state: AIOState) -> AIOState:
+        """Hash and embed every message in ``context_window``, then store episodically.
+
+        Args:
+            state: Current :class:`AIOState`.
+
+        Returns:
+            Mutated state (``working_memory`` and ``long_term_memory`` are updated indirectly).
+        """
         start = time.time()
         with self.obs.start_span("memory.encode", state.get("trace_id")):
             window = state.get("context_window", [])
@@ -137,6 +150,14 @@ class MemoryBridge:
         return state
 
     def verify(self, state: AIOState) -> AIOState:
+        """Deduplicate episodic entries and mark them as verified.
+
+        Args:
+            state: Current :class:`AIOState`.
+
+        Returns:
+            Mutated state with cleaned episodic store.
+        """
         start = time.time()
         with self.obs.start_span("memory.verify", state.get("trace_id")):
             seen: set = set()
@@ -156,6 +177,14 @@ class MemoryBridge:
         return state
 
     def store(self, state: AIOState) -> AIOState:
+        """No-op persistence hook (backend sync happens in encode/verify/consolidate).
+
+        Args:
+            state: Current :class:`AIOState`.
+
+        Returns:
+            Unmodified state.
+        """
         start = time.time()
         with self.obs.start_span("memory.store", state.get("trace_id")):
             self.obs.record_latency("memory.store", time.time() - start)
@@ -163,6 +192,14 @@ class MemoryBridge:
         return state
 
     def consolidate(self, state: AIOState) -> AIOState:
+        """Promote aged, verified episodic entries to long-term memory.
+
+        Args:
+            state: Current :class:`AIOState`.
+
+        Returns:
+            Mutated state with ``long_term_memory`` updated.
+        """
         start = time.time()
         with self.obs.start_span("memory.consolidate", state.get("trace_id")):
             batch: List[Dict[str, Any]] = []
@@ -184,6 +221,14 @@ class MemoryBridge:
         return state
 
     def retrieve(self, state: AIOState) -> AIOState:
+        """Hybrid keyword + vector search over episodic and long-term stores.
+
+        Args:
+            state: Current :class:`AIOState`.
+
+        Returns:
+            Mutated state with ``working_memory`` and ``memory_confidence``.
+        """
         start = time.time()
         with self.obs.start_span("memory.retrieve", state.get("trace_id")):
             query = state.get("raw_input", "")
@@ -218,6 +263,14 @@ class MemoryBridge:
         return state
 
     def forget(self, state: AIOState) -> AIOState:
+        """Purge old, unimportant entries from both memory stores.
+
+        Args:
+            state: Current :class:`AIOState`.
+
+        Returns:
+            Mutated state with cleaned stores.
+        """
         start = time.time()
         with self.obs.start_span("memory.forget", state.get("trace_id")):
             now = time.time()

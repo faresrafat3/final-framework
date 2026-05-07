@@ -9,7 +9,12 @@ from ..state import AIOState
 
 
 class Verifier:
-    """Multi-modal verification: LLM critique, formal rules, competence scoring, debug."""
+    """Layer 5 — Multi-modal verification: LLM critique, formal rules, ensemble scoring, debug.
+
+    Args:
+        config: Layer 5 configuration (thresholds, feature flags).
+        observability: Shared observability layer for spans and metrics.
+    """
 
     def __init__(self, config: VerifierConfig, observability: ObservabilityLayer) -> None:
         self.config = config
@@ -17,6 +22,14 @@ class Verifier:
         self._historical_scores: List[float] = []
 
     def critique(self, state: AIOState) -> AIOState:
+        """Run LLM-based critique on the current plan.
+
+        Args:
+            state: Current :class:`AIOState`.
+
+        Returns:
+            Mutated state with ``verification_result["critiques"]`` and ``llm_pass``.
+        """
         start = time.time()
         with self.obs.start_span("verifier.critique", state.get("trace_id")):
             plan = state.get("plan", "")
@@ -36,6 +49,14 @@ class Verifier:
         return state
 
     def judge(self, state: AIOState) -> AIOState:
+        """Run deterministic formal checks (forbidden patterns, length bounds).
+
+        Args:
+            state: Current :class:`AIOState`.
+
+        Returns:
+            Mutated state with ``verification_result["formal_checks"]`` and ``formal_pass``.
+        """
         start = time.time()
         with self.obs.start_span("verifier.judge", state.get("trace_id")):
             result = state.setdefault("verification_result", {})
@@ -54,6 +75,14 @@ class Verifier:
         return state
 
     def score(self, state: AIOState) -> AIOState:
+        """Compute an ensemble score blending LLM and formal results.
+
+        Args:
+            state: Current :class:`AIOState`.
+
+        Returns:
+            Mutated state with ``verification_result["ensemble_score"]`` and ``passed``.
+        """
         start = time.time()
         with self.obs.start_span("verifier.score", state.get("trace_id")):
             result = state.setdefault("verification_result", {})
@@ -72,6 +101,14 @@ class Verifier:
         return state
 
     def debug(self, state: AIOState) -> AIOState:
+        """Generate debug hypotheses when the ensemble score fails.
+
+        Args:
+            state: Current :class:`AIOState`.
+
+        Returns:
+            Mutated state with ``verification_result["debug_hypotheses"]``.
+        """
         start = time.time()
         with self.obs.start_span("verifier.debug", state.get("trace_id")):
             result = state.setdefault("verification_result", {})

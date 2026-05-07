@@ -12,6 +12,8 @@ from ..state import AIOState
 
 
 class FailureState(Enum):
+    """Discrete failure states used by the ReCiSt state machine."""
+
     HEALTHY = "HEALTHY"
     DEGRADED = "DEGRADED"
     RECOVERING = "RECOVERING"
@@ -19,7 +21,12 @@ class FailureState(Enum):
 
 
 class FailureRecovery:
-    """ReCiSt state machine, NeuroShield, retry logic, anti-fragility learning."""
+    """Layer 8 — ReCiSt state machine, NeuroShield, retry logic, anti-fragility learning.
+
+    Args:
+        config: Layer 8 configuration (retries, backoff, safety mode).
+        observability: Shared observability layer for spans and metrics.
+    """
 
     def __init__(self, config: FailureRecoveryConfig, observability: ObservabilityLayer) -> None:
         self.config = config
@@ -31,6 +38,14 @@ class FailureRecovery:
         }
 
     def assess(self, state: AIOState) -> AIOState:
+        """Classify the latest execution result and update failure counters.
+
+        Args:
+            state: Current :class:`AIOState`.
+
+        Returns:
+            Mutated state with ``failure_state``, ``failure_count``, ``retry_budget``.
+        """
         start = time.time()
         with self.obs.start_span("failure.assess", state.get("trace_id")):
             exec_res = state.get("execution_result", {})
@@ -80,6 +95,14 @@ class FailureRecovery:
         return "transient"
 
     def retry(self, state: AIOState) -> AIOState:
+        """Compute an adaptive backoff interval and store it in metrics.
+
+        Args:
+            state: Current :class:`AIOState`.
+
+        Returns:
+            Mutated state with ``metrics["retry_backoff_seconds"]``.
+        """
         start = time.time()
         with self.obs.start_span("failure.retry", state.get("trace_id")):
             fcount = state.get("failure_count", 0)
@@ -100,6 +123,12 @@ class FailureRecovery:
         harmful, PII-leaking, system-integrity-violating, or jailbreak
         inputs. Sets ``failure_state`` to ``FAILED`` and populates
         ``safety_violations`` when threats are detected.
+
+        Args:
+            state: Current :class:`AIOState`.
+
+        Returns:
+            Mutated state with ``safety_violations`` updated if threats found.
         """
         start = time.time()
         with self.obs.start_span("failure.shield", state.get("trace_id")):
@@ -140,6 +169,14 @@ class FailureRecovery:
         return state
 
     def learn(self, state: AIOState) -> AIOState:
+        """Adapt retry thresholds based on recent failure classifications.
+
+        Args:
+            state: Current :class:`AIOState`.
+
+        Returns:
+            Mutated state with ``metrics["adaptive_thresholds"]``.
+        """
         start = time.time()
         with self.obs.start_span("failure.learn", state.get("trace_id")):
             log = self._failure_log
@@ -160,6 +197,14 @@ class FailureRecovery:
         return state
 
     def escalate(self, state: AIOState) -> AIOState:
+        """Escalate to operator by clearing output and marking FAILED.
+
+        Args:
+            state: Current :class:`AIOState`.
+
+        Returns:
+            Mutated state with ``output`` cleared and ``failure_state`` = ``FAILED``.
+        """
         state["output"] = None
         state["error"] = state.get("error") or "Escalated to operator."
         state["failure_state"] = "FAILED"
@@ -168,6 +213,14 @@ class FailureRecovery:
         return state
 
     def degrade(self, state: AIOState) -> AIOState:
+        """Enter degraded mode with a limited fallback response.
+
+        Args:
+            state: Current :class:`AIOState`.
+
+        Returns:
+            Mutated state with ``output`` and ``failure_state`` = ``DEGRADED``.
+        """
         state["output"] = state.get("output") or "[DEGRADED MODE] Limited response due to system failure."
         state["failure_state"] = "DEGRADED"
         self.obs.set_failure_state("DEGRADED")

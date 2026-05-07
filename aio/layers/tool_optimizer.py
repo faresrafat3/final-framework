@@ -10,7 +10,12 @@ from ..state import AIOState
 
 
 class ToolOptimizer:
-    """G-STEP, HDPO, JTPRO, sandbox execution, and tool usage analytics with auto-deprecation."""
+    """Layer 6 — G-STEP, HDPO, JTPRO, sandbox execution, and tool usage analytics with auto-deprecation.
+
+    Args:
+        config: Layer 6 configuration (thresholds, weights, iterations).
+        observability: Shared observability layer for spans and metrics.
+    """
 
     def __init__(self, config: ToolOptimizerConfig, observability: ObservabilityLayer) -> None:
         self.config = config
@@ -23,6 +28,12 @@ class ToolOptimizer:
         If the score is below threshold, the node sets a routing flag
         but does not set a fatal error, allowing conditional downstream
         routing to skip execution.
+
+        Args:
+            state: Current :class:`AIOState`.
+
+        Returns:
+            Mutated state with ``tool_necessity_score`` and ``metrics["gstep_rejected"]``.
         """
         start = time.time()
         with self.obs.start_span("toolopt.gstep", state.get("trace_id")):
@@ -44,7 +55,14 @@ class ToolOptimizer:
         return state
 
     def hdpo_optimize(self, state: AIOState) -> AIOState:
-        """HDPO: hierarchical decoupled policy optimization for accuracy and efficiency channels."""
+        """HDPO: hierarchical decoupled policy optimization for accuracy and efficiency channels.
+
+        Args:
+            state: Current :class:`AIOState`.
+
+        Returns:
+            Mutated state with ``tool_policy_channels``.
+        """
         start = time.time()
         with self.obs.start_span("toolopt.hdpo", state.get("trace_id")):
             accuracy = random.uniform(0.7, 1.0)
@@ -63,7 +81,14 @@ class ToolOptimizer:
         return state
 
     def jtpro_optimize(self, state: AIOState) -> AIOState:
-        """JTPRO: joint tool-prompt reflective optimization."""
+        """JTPRO: joint tool-prompt reflective optimization.
+
+        Args:
+            state: Current :class:`AIOState`.
+
+        Returns:
+            Mutated state with ``tool_prompt_optimization``.
+        """
         start = time.time()
         with self.obs.start_span("toolopt.jtpro", state.get("trace_id")):
             plan = state.get("plan", "")
@@ -83,6 +108,13 @@ class ToolOptimizer:
         """Enhanced sandbox execution with result capture.
 
         Delegates to the Layer 7 ToolGate and then records sandbox metadata.
+
+        Args:
+            state: Current :class:`AIOState`.
+            toolgate: The :class:`aio.layers.tool_gate.ToolGate` instance to invoke.
+
+        Returns:
+            Mutated state with ``sandbox_result``.
         """
         start = time.time()
         with self.obs.start_span("toolopt.sandbox", state.get("trace_id")):
@@ -99,7 +131,14 @@ class ToolOptimizer:
         return state
 
     def analytics_record(self, state: AIOState) -> AIOState:
-        """Record tool usage analytics and auto-deprecate underperforming tools."""
+        """Record tool usage analytics and auto-deprecate underperforming tools.
+
+        Args:
+            state: Current :class:`AIOState`.
+
+        Returns:
+            Mutated state with ``tool_analytics``.
+        """
         start = time.time()
         with self.obs.start_span("toolopt.analytics", state.get("trace_id")):
             exec_res = state.get("execution_result", {})

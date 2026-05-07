@@ -1,6 +1,12 @@
 # AIO Framework — All-in-One Agentic Framework
 
+[![Documentation](https://img.shields.io/badge/docs-mkdocs-blue)](https://aio-framework.github.io/aio-framework)
+
 A production-grade, modular agent architecture built as a **Cognitive Immune System / Agentic OS**. AIO organizes agent cognition into 13 layers, implemented as a compiled LangGraph `StateGraph` with conditional routing, typed state, and layer-wise observability.
+
+## Documentation
+
+Full documentation is published at [https://aio-framework.github.io/aio-framework](https://aio-framework.github.io/aio-framework).
 
 ## Architecture
 
