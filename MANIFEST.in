@@ -1,0 +1,5 @@
+include README.md CHANGELOG.md LICENSE
+include .env.example
+recursive-include prompts *.txt
+recursive-include aio/dashboard/templates *.html
+recursive-include aio/dashboard/static *.css *.js *.png *.jpg *.svg

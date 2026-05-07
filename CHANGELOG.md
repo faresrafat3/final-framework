@@ -1,5 +1,43 @@
 # Changelog
 
+## [7.0.0] — 2024-05-09
+
+### Added
+- **Packaging & Distribution — Priority 7**
+  - `pyproject.toml` with PEP 621 metadata, `setuptools` build backend, and semantic versioning starting at `7.0.0`
+  - Core dependencies in `[project]`, optional extras:
+    - `dashboard` — FastAPI, Uvicorn, Jinja2
+    - `llm` — langchain-openai, langchain-anthropic
+    - `embeddings` — sentence-transformers
+    - `memory-redis` — redis
+    - `memory-postgres` — psycopg2-binary
+    - `benchmark` — psutil, jinja2
+    - `dev` — all extras + pytest, pytest-asyncio, pytest-cov
+    - `all` — union of all runtime extras
+  - Console-script entry points:
+    - `aio` — unified CLI (`aio run`, `aio benchmark`, `aio dashboard`)
+    - `aio-benchmark` — backward-compatible benchmark CLI
+  - New `aio/cli.py` with subcommands:
+    - `run` — builds graph, invokes query, prints JSON output
+    - `benchmark` — delegates to `aio.benchmark.cli:main`
+    - `dashboard` — starts Uvicorn with `create_dashboard_app` when available
+  - Multi-stage `Dockerfile` (builder + runtime) based on `python:3.12-slim`, installs `[all]` extras, exposes ports `8000` and `9091`, healthcheck via import smoke test
+  - GitHub Actions workflows:
+    - `ci.yml` — test matrix (Python 3.10–3.12), wheel + sdist build, artifact upload
+    - `publish-pypi.yml` — triggered on `v*` tags, trusted publishing via OIDC
+    - `publish-docker.yml` — triggered on `v*` tags, multi-arch (`linux/amd64`, `linux/arm64`) build-push to Docker Hub
+  - `MANIFEST.in` to ensure `prompts/`, `dashboard/templates/`, and `.env.example` are included in sdist
+
+### Changed
+- `requirements.txt` deprecated; replaced with a comment pointing to `pip install -e ".[dev]"`
+- `README.md` updated with `pip install aio-framework[all]`, CLI examples, and Docker usage
+- Test coverage target changed from `--cov=aio_framework` to `--cov=aio` to align with package namespace
+
+### Preserved
+- Backward compatibility: `aio_framework.py` remains at repo root and is declared via `py-modules`; existing imports (`from aio_framework import ...`) continue to work unchanged
+
+---
+
 ## [Priority 6.0.0] — 2024-05-08
 
 ### Added
