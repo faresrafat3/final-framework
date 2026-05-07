@@ -60,6 +60,7 @@
 | Priority 5 | MCP (Model Context Protocol) Integration | Complete | Unit + Integration |
 | Priority 6 | Performance Benchmark Suite | Complete | Unit + Integration |
 | Priority 7 | Packaging & Distribution | Complete | CI + Smoke |
+| Priority 8 | Real-Time Cognitive Streaming & Event Layer | Complete | Unit + Integration |
 
 ---
 
@@ -105,6 +106,9 @@
 | `aio/benchmark/reporter.py` | JSON and HTML reporters | ~130 |
 | `aio/benchmark/regression.py` | `RegressionDetector` baseline comparison | ~120 |
 | `aio/benchmark/cli.py` | `argparse` entry point for CI | ~90 |
+| `aio/streaming/` | Streaming package (events, manager, transports, store) | — |
+| `tests/unit/test_streaming_*.py` | Streaming unit tests (manager, transports, store, CLI) | — |
+| `docs/streaming.md` | Streaming subsystem documentation | — |
 
 ---
 
@@ -150,6 +154,10 @@ pytest tests/unit/test_benchmark_collector.py tests/unit/test_benchmark_reporter
 aio run "echo hello world"
 aio benchmark
 aio dashboard
+
+# Streaming build commands
+ENABLE_STREAMING=true aio run "echo hello" --stream
+pytest tests/unit/test_streaming_*.py -v
 
 # Docker build and run
 docker build -t aio-framework .
@@ -205,6 +213,7 @@ If context is lost between sessions:
 - **Additive only**: Never remove existing state fields from `AIOState`. Use `total=False` TypedDict.
 - **Feature flags**: All new functionality is gated by env-driven flags (e.g., `ENABLE_PRIORITY_3`, `MEMORY_BACKEND_TYPE`, `COGNITIVE_IMMUNE_LEARN_ENABLE`, `MULTI_AGENT_USE_LANGGRAPH_BACKEND`, `GOVERNANCE_DASHBOARD_ENABLE`).
 - **Benchmark Suite feature flags**: `BENCHMARK_ITERATIONS`, `BENCHMARK_WARMUP_ITERATIONS`, `BENCHMARK_SCENARIOS`, `BENCHMARK_BASELINE_PATH`, `BENCHMARK_REGRESSION_THRESHOLD_PERCENT`, `BENCHMARK_OUTPUT_DIR`, `BENCHMARK_ENABLE_MEMORY_PROFILING`, `BENCHMARK_ENABLE_HTML_REPORT`.
+- **Streaming feature flags**: `ENABLE_STREAMING`, `STREAMING_TRANSPORT`, `STREAMING_EVENT_PERSISTENCE`, `STREAMING_MAX_BUFFER_EVENTS`.
 - **Observability**: Every layer method wraps logic in `self.obs.start_span()` and calls `record_latency()` + `count_node()`.
 - **Graceful degradation**: All external dependencies are optional with feature flags (`OTEL_AVAILABLE`, `REDIS_AVAILABLE`, `PSYCOPG2_AVAILABLE`, `HTTPX_AVAILABLE`, etc.).
 - **No new required dependencies**: Priority 4 added `redis>=5.0.0` and `psycopg2-binary>=2.9.0` to `requirements.txt`, but both are optional at runtime (guarded by availability checks and feature flags). Priority 5 uses existing `httpx>=0.25.0` for MCP SSE transport.
@@ -215,4 +224,4 @@ If context is lost between sessions:
 
 ---
 
-*Last updated: Post-PR #14 — Packaging & Distribution (Priority 7)*
+*Last updated: Post-PR #17 — Real-Time Cognitive Streaming & Event Layer (Priority 8)*
