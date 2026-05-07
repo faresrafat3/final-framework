@@ -22,15 +22,30 @@ class MCPTransport(ABC):
 
     @abstractmethod
     def send(self, message: Dict[str, Any]) -> Dict[str, Any]:
+        """Send a JSON-RPC message and return the response dict.
+
+        Args:
+            message: JSON-RPC request dict.
+
+        Returns:
+            Parsed JSON response dict.
+        """
         raise NotImplementedError
 
     @abstractmethod
     def close(self) -> None:
+        """Release underlying transport resources."""
         raise NotImplementedError
 
 
 class StdioTransport(MCPTransport):
-    """JSON-RPC over stdio using a subprocess."""
+    """JSON-RPC over stdio using a subprocess.
+
+    Args:
+        command: Executable path.
+        args: Command-line arguments.
+        timeout: Read timeout in seconds.
+    """
 
     def __init__(self, command: str, args: List[str], timeout: int = 30) -> None:
         self.command = command
@@ -78,7 +93,13 @@ class StdioTransport(MCPTransport):
 
 
 class SSETransport(MCPTransport):
-    """JSON-RPC over Server-Sent Events via HTTP."""
+    """JSON-RPC over Server-Sent Events via HTTP.
+
+    Args:
+        url: Base URL of the MCP SSE endpoint.
+        headers: Optional extra HTTP headers.
+        timeout: Request timeout in seconds.
+    """
 
     def __init__(self, url: str, headers: Optional[Dict[str, str]] = None, timeout: int = 30) -> None:
         if not HTTPX_AVAILABLE:
@@ -110,7 +131,12 @@ class SSETransport(MCPTransport):
 
 
 class MCPClient:
-    """JSON-RPC 2.0 client for the Model Context Protocol."""
+    """JSON-RPC 2.0 client for the Model Context Protocol.
+
+    Args:
+        config: MCP client configuration (servers, timeouts, auto-discover).
+        observability: Shared observability layer for spans and metrics.
+    """
 
     def __init__(self, config: MCPConfig, observability: ObservabilityLayer) -> None:
         self.config = config
@@ -178,6 +204,11 @@ class MCPClient:
         return {"jsonrpc": "2.0", "id": req_id, "method": method, "params": params or {}}
 
     def list_tools(self) -> List[Dict[str, Any]]:
+        """Enumerate tools from all connected MCP servers.
+
+        Returns:
+            List of tool descriptor dicts (each includes ``_mcp_server``).
+        """
         tools: List[Dict[str, Any]] = []
         if not self._available:
             return tools
@@ -200,6 +231,16 @@ class MCPClient:
         return tools
 
     def call_tool(self, server_name: str, tool_name: str, arguments: Dict[str, Any]) -> Dict[str, Any]:
+        """Invoke a remote tool via its MCP server.
+
+        Args:
+            server_name: Registered MCP server name.
+            tool_name: Tool name as reported by ``list_tools``.
+            arguments: JSON object matching the tool's input schema.
+
+        Returns:
+            Result dict with ``success``, ``stdout``, ``stderr``, ``exit_code``.
+        """
         if not self._available:
             return {"success": False, "stdout": "", "stderr": "MCP not available", "exit_code": -1}
         transport = None
@@ -231,6 +272,14 @@ class MCPClient:
                 return {"success": False, "stdout": "", "stderr": f"MCP exception: {exc}", "exit_code": -1}
 
     def discover_and_register(self, toolgate: Any) -> List[str]:
+        """Discover remote tools and register them with a :class:`aio.layers.tool_gate.ToolGate`.
+
+        Args:
+            toolgate: ToolGate instance to register discovered tools with.
+
+        Returns:
+            List of prefixed tool names that were registered.
+        """
         discovered: List[str] = []
         if not self._available or not self.config.auto_discover:
             return discovered
@@ -262,9 +311,11 @@ class MCPClient:
         return discovered
 
     def is_available(self) -> bool:
+        """Return whether at least one MCP transport is connected."""
         return self._available
 
     def close(self) -> None:
+        """Close all transports and clear internal state."""
         for _, transport in self._transports:
             transport.close()
         self._transports.clear()
@@ -272,7 +323,16 @@ class MCPClient:
 
 
 def node_mcp_discover(state: AIOState, mcp_client: MCPClient, toolgate: Any) -> AIOState:
-    """Node wrapper for dynamic MCP discovery."""
+    """Node wrapper for dynamic MCP discovery.
+
+    Args:
+        state: Current :class:`AIOState`.
+        mcp_client: Initialised MCP client.
+        toolgate: ToolGate instance.
+
+    Returns:
+        Mutated state with ``mcp_discovered_tools`` updated.
+    """
     if not mcp_client.is_available():
         state["mcp_discovered_tools"] = state.get("mcp_discovered_tools") or []
         return state

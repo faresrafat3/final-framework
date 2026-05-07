@@ -85,7 +85,33 @@ def build_aio_graph(
     store: Optional[Any] = None,
     observability_layer: Optional[ObservabilityLayer] = None,
 ) -> Any:
-    """Build and compile the Priority 2 AIO StateGraph."""
+    """Build and compile the full AIO LangGraph ``StateGraph``.
+
+    This factory wires all 13 cognitive layers as nodes and attaches the
+    conditional routing edges that govern transitions between them.  The
+    resulting compiled graph can be invoked with an :class:`aio.state.AIOState`
+    dict.
+
+    Args:
+        config: Top-level configuration.  Defaults to ``AIOConfig()``.
+        store: Optional :class:`aio.dashboard.store.AuditStore` used by
+            Layer 11 (SafetyGovernance) to persist audit decisions.
+        observability_layer: Optional :class:`aio.layers.observability.ObservabilityLayer`.
+            When omitted a default instance is created from ``config.observability``.
+
+    Returns:
+        A compiled LangGraph object (`` CompiledStateGraph``) exposing
+        ``invoke()``, ``stream()``, etc.
+
+    Raises:
+        ImportError: If ``langgraph`` is not installed.
+
+    Example::
+
+        from aio import AIOConfig, build_aio_graph, make_initial_state
+        graph = build_aio_graph(AIOConfig())
+        result = graph.invoke(make_initial_state("echo hello"))
+    """
     cfg = config or AIOConfig()
     obs = observability_layer or ObservabilityLayer(cfg.observability)
     ctx_mgr = ContextManager(cfg.context, obs)

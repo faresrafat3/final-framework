@@ -15,7 +15,13 @@ if DOCKER_AVAILABLE:
 
 
 class ToolGate:
-    """Capability registry, HermesAgent routing, and Docker sandbox execution."""
+    """Layer 7 — Capability registry, HermesAgent routing, and Docker sandbox execution.
+
+    Args:
+        config: Layer 7 configuration (socket, timeouts, sandbox limits).
+        observability: Shared observability layer for spans and metrics.
+        mcp_client: Optional :class:`aio.layers.mcp_client.MCPClient` for dynamic tool discovery.
+    """
 
     def __init__(self, config: ToolGateConfig, observability: ObservabilityLayer, mcp_client: Optional[Any] = None) -> None:
         self.config = config
@@ -37,6 +43,7 @@ class ToolGate:
                 self.obs.log(logging.WARNING, f"MCP discovery failed: {exc}")
 
     def _register_defaults(self) -> None:
+        """Register the built-in python, bash, and echo tools."""
         self.register_tool(
             name="python_sandbox",
             schema={"type": "object", "properties": {"code": {"type": "string"}}},
@@ -64,6 +71,15 @@ class ToolGate:
         timeout: int = 30,
         handler: Optional[Callable[..., Any]] = None,
     ) -> None:
+        """Add a new tool to the capability registry.
+
+        Args:
+            name: Unique tool identifier.
+            schema: JSON-schema describing expected parameters.
+            sandbox: Whether to run inside a Docker container.
+            timeout: Max execution seconds.
+            handler: Optional Python callable for non-sandbox tools.
+        """
         self._registry[name] = {
             "name": name,
             "schema": schema,
@@ -74,6 +90,14 @@ class ToolGate:
         self.obs.log(logging.INFO, f"Tool registered: {name}")
 
     def route(self, state: AIOState) -> str:
+        """Select the most appropriate tool for the current intent/plan.
+
+        Args:
+            state: Current :class:`AIOState`.
+
+        Returns:
+            Tool name (``python_sandbox``, ``bash_sandbox``, or ``echo``).
+        """
         intent = state.get("intent") or "general"
         plan = state.get("plan") or ""
         lowered = (intent + " " + plan).lower()
@@ -84,6 +108,14 @@ class ToolGate:
         return "echo"
 
     def execute(self, state: AIOState) -> AIOState:
+        """Route, parameterise, and run the selected tool.
+
+        Args:
+            state: Current :class:`AIOState`.
+
+        Returns:
+            Mutated state with ``execution_result`` and optionally ``mcp_execution_metadata``.
+        """
         start = time.time()
         with self.obs.start_span("toolgate.execute", state.get("trace_id")):
             tool_name = self.route(state)
@@ -139,6 +171,13 @@ class ToolGate:
 
         If ``self._docker_client`` is ``None`` or Docker is globally unavailable,
         returns a graceful failure so that tests can mock the client directly.
+
+        Args:
+            tool: Registry entry for the tool.
+            params: Extracted parameters dict.
+
+        Returns:
+            Result dict with ``success``, ``stdout``, ``stderr``, ``exit_code``.
         """
         if self._docker_client is None or not DOCKER_AVAILABLE:
             return {
@@ -192,6 +231,15 @@ class ToolGate:
             }
 
     def _direct_run(self, tool: Dict[str, Any], params: Dict[str, Any]) -> Dict[str, Any]:
+        """Run a non-sandbox tool via its handler or built-in fallback.
+
+        Args:
+            tool: Registry entry for the tool.
+            params: Extracted parameters dict.
+
+        Returns:
+            Result dict with ``success``, ``stdout``, ``stderr``, ``exit_code``.
+        """
         handler = tool.get("handler")
         if handler:
             try:

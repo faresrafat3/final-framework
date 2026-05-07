@@ -28,7 +28,15 @@ def _flag(name: str, default: bool = False) -> bool:
 
 
 class ObservabilityLayer:
-    """Provides tracing, metrics, logging, and optional LangSmith integration."""
+    """Layer 0 — OpenTelemetry tracing, Prometheus metrics, structured logging, and LangSmith.
+
+    This class is instantiated once per graph build and injected into every
+    downstream layer so that spans, counters, and gauges are emitted from a
+    single coherent source.
+
+    Args:
+        config: Layer 0 configuration (endpoint, ports, log level, etc.).
+    """
 
     def __init__(self, config: ObservabilityConfig) -> None:
         self.config = config
@@ -118,6 +126,15 @@ class ObservabilityLayer:
             self.logger.warning("LangSmith init failed: %s", exc)
 
     def start_span(self, name: str, trace_id: Optional[str] = None) -> Any:
+        """Return an OpenTelemetry span context manager (or a no-op null context).
+
+        Args:
+            name: Logical operation name (e.g. ``context.ingest``).
+            trace_id: Optional 32-hex trace ID to correlate with the state.
+
+        Returns:
+            A context manager that enters/exits the span.
+        """
         if self._tracer is None:
             return _NullContext()
         import importlib
@@ -131,23 +148,52 @@ class ObservabilityLayer:
         return self._tracer.start_as_current_span(name, context=ctx)
 
     def record_latency(self, node_name: str, seconds: float) -> None:
+        """Record node execution latency to the Prometheus histogram.
+
+        Args:
+            node_name: Name of the LangGraph node.
+            seconds: Wall-clock latency in seconds.
+        """
         if _flag("PROMETHEUS_AVAILABLE", PROMETHEUS_AVAILABLE) and hasattr(self, "node_latency"):
             self.node_latency.labels(node_name=node_name).observe(seconds)
 
     def count_node(self, node_name: str, status: str) -> None:
+        """Increment the execution counter for a node/status pair.
+
+        Args:
+            node_name: Name of the LangGraph node.
+            status: Arbitrary status label (``success``, ``failure``, ``blocked``, etc.).
+        """
         if _flag("PROMETHEUS_AVAILABLE", PROMETHEUS_AVAILABLE) and hasattr(self, "node_counter"):
             self.node_counter.labels(node_name=node_name, status=status).inc()
 
     def set_failure_state(self, state: str) -> None:
+        """Update the gauge that reflects the current failure state.
+
+        Args:
+            state: One of ``HEALTHY``, ``DEGRADED``, ``RECOVERING``, ``FAILED``.
+        """
         mapping = {"HEALTHY": 0, "DEGRADED": 1, "RECOVERING": 2, "FAILED": 3}
         if _flag("PROMETHEUS_AVAILABLE", PROMETHEUS_AVAILABLE) and hasattr(self, "failure_gauge"):
             self.failure_gauge.set(mapping.get(state, 0))
 
     def set_context_budget(self, tokens: int) -> None:
+        """Update the gauge that tracks remaining context tokens.
+
+        Args:
+            tokens: Remaining token budget.
+        """
         if _flag("PROMETHEUS_AVAILABLE", PROMETHEUS_AVAILABLE) and hasattr(self, "context_budget_gauge"):
             self.context_budget_gauge.set(tokens)
 
     def log(self, level: int, message: str, extra: Optional[Dict[str, Any]] = None) -> None:
+        """Emit a structured log line with an auto-generated correlation ID.
+
+        Args:
+            level: Python logging level constant.
+            message: Log message string.
+            extra: Optional dictionary merged into the log record.
+        """
         extra = extra or {}
         extra.setdefault("correlation_id", str(uuid.uuid4())[:8])
         self.logger.log(level, message, extra=extra)

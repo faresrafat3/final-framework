@@ -63,6 +63,11 @@ benchmark = [
     "psutil>=5.9.0",
     "jinja2>=3.0.0",
 ]
+docs = [
+    "mkdocs-material>=9.5",
+    "mkdocstrings[python]>=0.24",
+    "pymdown-extensions>=10.0",
+]
 dev = [
     "aio-framework[all]",
     "pytest>=7.4.0",
@@ -87,7 +92,7 @@ aio-benchmark = "aio.benchmark.cli:main"
 
 [project.urls]
 Homepage = "https://github.com/aio-framework/aio-framework"
-Documentation = "https://github.com/aio-framework/aio-framework#readme"
+Documentation = "https://aio-framework.github.io/aio-framework"
 Issues = "https://github.com/aio-framework/aio-framework/issues"
 
 [tool.setuptools.packages.find]

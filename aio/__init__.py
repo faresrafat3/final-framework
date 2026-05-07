@@ -1,4 +1,23 @@
-"""AIO Framework — Modularized core with backward-compatible re-exports."""
+"""AIO Framework — Modularized core with backward-compatible re-exports.
+
+This package exposes the public API surface of the All-in-One Agentic
+Framework.  The typical entry points for developers are:
+
+* :class:`aio.config.models.AIOConfig` – typed Pydantic configuration
+* :func:`aio.graph.builder.build_aio_graph` – compile the full LangGraph
+* :class:`aio.state.AIOState` – the typed state dict consumed by every node
+* Layer classes such as :class:`aio.layers.observability.ObservabilityLayer`,
+  :class:`aio.layers.memory.MemoryBridge`, etc.
+
+Example::
+
+    from aio import AIOConfig, build_aio_graph, make_initial_state
+
+    config = AIOConfig()
+    graph = build_aio_graph(config)
+    state = make_initial_state("echo hello world")
+    result = graph.invoke(state)
+"""
 
 from .config.models import (
     AIOConfig,

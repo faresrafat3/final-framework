@@ -9,7 +9,12 @@ from ..state import AIOState
 
 
 class CognitiveImmuneSystem:
-    """Anomaly detection, threat pattern tracking, quarantine, and self-healing."""
+    """Layer 12 — Anomaly detection, threat pattern tracking, quarantine, and self-healing.
+
+    Args:
+        config: Layer 12 configuration (thresholds, auto-heal flags, learning settings).
+        observability: Shared observability layer for spans and metrics.
+    """
 
     def __init__(self, config: CognitiveImmuneConfig, observability: ObservabilityLayer) -> None:
         self.config = config
@@ -24,6 +29,14 @@ class CognitiveImmuneSystem:
             self._learning = None
 
     def scan(self, state: AIOState) -> AIOState:
+        """Compute a heuristic anomaly score from failure counters, safety violations, and memory health.
+
+        Args:
+            state: Current :class:`AIOState`.
+
+        Returns:
+            Mutated state with ``anomaly_score`` and optionally ``learned_anomaly_score``.
+        """
         start = time.time()
         with self.obs.start_span("immune.scan", state.get("trace_id")):
             score = 0.0
@@ -52,10 +65,19 @@ class CognitiveImmuneSystem:
         return state
 
     def close(self) -> None:
+        """Release resources held by the optional learning engine."""
         if self._learning is not None:
             self._learning.close()
 
     def detect_threats(self, state: AIOState) -> AIOState:
+        """Update the threat pattern database and return detected patterns.
+
+        Args:
+            state: Current :class:`AIOState`.
+
+        Returns:
+            Mutated state with ``threat_patterns_detected``.
+        """
         start = time.time()
         with self.obs.start_span("immune.detect", state.get("trace_id")):
             now = time.time()
@@ -76,6 +98,14 @@ class CognitiveImmuneSystem:
         return state
 
     def quarantine(self, state: AIOState) -> AIOState:
+        """Move corrupted memory entries to quarantine when auto-quarantine is enabled.
+
+        Args:
+            state: Current :class:`AIOState`.
+
+        Returns:
+            Mutated state with ``quarantined_ids``.
+        """
         start = time.time()
         with self.obs.start_span("immune.quarantine", state.get("trace_id")):
             qids: List[str] = []
@@ -92,6 +122,14 @@ class CognitiveImmuneSystem:
         return state
 
     def heal(self, state: AIOState) -> AIOState:
+        """Attempt automatic recovery actions when auto-heal is enabled.
+
+        Args:
+            state: Current :class:`AIOState`.
+
+        Returns:
+            Mutated state with ``healing_actions``.
+        """
         start = time.time()
         with self.obs.start_span("immune.heal", state.get("trace_id")):
             actions: List[Dict[str, Any]] = []
@@ -119,6 +157,14 @@ class CognitiveImmuneSystem:
         return state
 
     def update_immunity(self, state: AIOState) -> AIOState:
+        """Map the anomaly score to a discrete immune status.
+
+        Args:
+            state: Current :class:`AIOState`.
+
+        Returns:
+            Mutated state with ``immune_status`` (``HEALTHY``, ``WATCH``, or ``ALERT``).
+        """
         start = time.time()
         with self.obs.start_span("immune.update", state.get("trace_id")):
             anomaly = state.get("anomaly_score", 0.0)

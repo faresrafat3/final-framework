@@ -11,7 +11,13 @@ from ..state import AIOState
 
 
 class SimulatedMultiAgentBackend:
-    """Fallback simulated backend that mimics multi-agent dispatch without LLMs."""
+    """Fallback simulated backend that mimics multi-agent dispatch without LLMs.
+
+    Args:
+        config: Layer 10 configuration.
+        observability: Shared observability layer.
+        registry: Optional agent-role registry override.
+    """
 
     def __init__(
         self,
@@ -29,6 +35,14 @@ class SimulatedMultiAgentBackend:
         }
 
     def dispatch(self, state: AIOState) -> AIOState:
+        """Simulate execution of every subtask in the coordination plan.
+
+        Args:
+            state: Current :class:`AIOState`.
+
+        Returns:
+            Mutated state with ``agent_outputs``.
+        """
         start = time.time()
         with self.obs.start_span("multi_agent.dispatch.simulated", state.get("trace_id")):
             plan = state.get("coordination_plan", {})
@@ -55,6 +69,12 @@ class LangGraphMultiAgentBackend:
     routes subtasks to the appropriate agent sub-graph, collects results, and writes
     them back into ``agent_outputs``. If anything goes wrong it falls back to the
     simulated backend automatically so callers never crash.
+
+    Args:
+        config: Layer 10 configuration.
+        observability: Shared observability layer.
+        registry: Optional agent-role registry override.
+        agent_callables: Optional dict of callables for real LLM-backed agents.
     """
 
     def __init__(
@@ -84,6 +104,14 @@ class LangGraphMultiAgentBackend:
     # ------------------------------------------------------------------
 
     def dispatch(self, state: AIOState) -> AIOState:
+        """Invoke the compiled supervisor sub-graph and copy results back.
+
+        Args:
+            state: Current :class:`AIOState`.
+
+        Returns:
+            Mutated state with ``agent_outputs`` and ``consensus_score``.
+        """
         start = time.time()
         with self.obs.start_span("multi_agent.dispatch.langgraph", state.get("trace_id")):
             try:
@@ -101,6 +129,7 @@ class LangGraphMultiAgentBackend:
     # ------------------------------------------------------------------
 
     def _build_supervisor_subgraph(self) -> Any:
+        """Build and compile a LangGraph supervisor sub-graph."""
         graph = StateGraph(AIOState)
 
         # Supervisor node: prepares the execution queue.
@@ -186,6 +215,7 @@ class LangGraphMultiAgentBackend:
         return state
 
     def _run_subgraph(self, state: AIOState) -> AIOState:
+        """Invoke the compiled sub-graph and copy outputs back into *state*."""
         # The subgraph is compiled so it expects a dict-like state.
         result = self._subgraph.invoke(state)
         # Copy the outputs back into the original state to keep types consistent.

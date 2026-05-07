@@ -9,7 +9,12 @@ from ..state import AIOState
 
 
 class SelfEvolutionLayer:
-    """Analyzes performance trends and suggests safe, bounded config improvements."""
+    """Layer 9 — Analyzes performance trends and suggests safe, bounded config improvements.
+
+    Args:
+        config: Layer 9 configuration (window size, auto-apply flag).
+        observability: Shared observability layer for spans and metrics.
+    """
 
     def __init__(self, config: SelfEvolutionConfig, observability: ObservabilityLayer) -> None:
         self.config = config
@@ -18,6 +23,14 @@ class SelfEvolutionLayer:
         self._applied_deltas: List[Dict[str, Any]] = []
 
     def analyze(self, state: AIOState) -> AIOState:
+        """Record a performance snapshot for the current turn.
+
+        Args:
+            state: Current :class:`AIOState`.
+
+        Returns:
+            Mutated state with ``performance_snapshot``.
+        """
         start = time.time()
         with self.obs.start_span("self_evolution.analyze", state.get("trace_id")):
             snapshot = {
@@ -34,6 +47,14 @@ class SelfEvolutionLayer:
         return state
 
     def generate_report(self, state: AIOState) -> AIOState:
+        """Compute rolling averages and trends over the recent snapshot window.
+
+        Args:
+            state: Current :class:`AIOState`.
+
+        Returns:
+            Mutated state with ``self_evolution_report``.
+        """
         start = time.time()
         with self.obs.start_span("self_evolution.report", state.get("trace_id")):
             window = self._snapshots[-self.config.performance_window_size:]
@@ -63,6 +84,14 @@ class SelfEvolutionLayer:
         return state
 
     def suggest_improvements(self, state: AIOState) -> AIOState:
+        """Propose safe config changes based on the latest report.
+
+        Args:
+            state: Current :class:`AIOState`.
+
+        Returns:
+            Mutated state with ``suggested_config_delta``.
+        """
         start = time.time()
         with self.obs.start_span("self_evolution.suggest", state.get("trace_id")):
             report = state.get("self_evolution_report", {})
@@ -77,6 +106,14 @@ class SelfEvolutionLayer:
         return state
 
     def apply_deltas(self, state: AIOState) -> AIOState:
+        """Apply whitelisted config deltas when ``auto_apply_config_delta`` is enabled.
+
+        Args:
+            state: Current :class:`AIOState`.
+
+        Returns:
+            Mutated state with ``metrics["self_evolution_applied"]``.
+        """
         start = time.time()
         with self.obs.start_span("self_evolution.apply", state.get("trace_id")):
             if not self.config.auto_apply_config_delta:

@@ -37,9 +37,11 @@ class InMemoryBackend(BaseMemoryBackend):
     """Default no-op backend.  All state lives in process memory."""
 
     def sync(self) -> None:
+        """No-op — data is already in memory."""
         pass
 
     def close(self) -> None:
+        """No-op — no external resources are held."""
         pass
 
 
@@ -48,6 +50,9 @@ class RedisBackend(BaseMemoryBackend):
 
     Falls back to a no-op if ``redis`` is unavailable or the server is
     unreachable on initialisation.
+
+    Args:
+        redis_url: Redis connection URL (e.g. ``redis://localhost:6379/0``).
     """
 
     _KEY_EPISODIC = "aio:memory:episodic"
@@ -71,6 +76,7 @@ class RedisBackend(BaseMemoryBackend):
         self.load()
 
     def load(self) -> None:
+        """Hydrate in-memory dicts from Redis hashes."""
         if self._client is None:
             return
         try:
@@ -84,6 +90,7 @@ class RedisBackend(BaseMemoryBackend):
             logger.warning("Failed to load from Redis: %s", exc)
 
     def sync(self) -> None:
+        """Atomically replace Redis hashes with the current in-memory dicts."""
         if self._client is None:
             return
         try:
@@ -100,6 +107,7 @@ class RedisBackend(BaseMemoryBackend):
             logger.warning("Failed to sync to Redis: %s", exc)
 
     def close(self) -> None:
+        """Close the Redis connection."""
         if self._client is not None:
             try:
                 self._client.close()
@@ -113,6 +121,9 @@ class PostgresBackend(BaseMemoryBackend):
 
     Falls back to a no-op if ``psycopg2`` is unavailable or the server is
     unreachable on initialisation.
+
+    Args:
+        postgres_url: PostgreSQL connection URL (e.g. ``postgresql://localhost/aio``).
     """
 
     _TABLE_ENTRIES = "aio_memory_entries"
@@ -135,6 +146,7 @@ class PostgresBackend(BaseMemoryBackend):
         self.load()
 
     def _ensure_schema(self) -> None:
+        """Create the required tables if they do not exist."""
         if self._conn is None:
             return
         with self._conn.cursor() as cur:
@@ -158,6 +170,7 @@ class PostgresBackend(BaseMemoryBackend):
             self._conn.commit()
 
     def load(self) -> None:
+        """Hydrate in-memory dicts from PostgreSQL JSONB rows."""
         if self._conn is None:
             return
         try:
@@ -178,6 +191,7 @@ class PostgresBackend(BaseMemoryBackend):
             logger.warning("Failed to load from Postgres: %s", exc)
 
     def sync(self) -> None:
+        """Truncate and repopulate the PostgreSQL tables from current dicts."""
         if self._conn is None:
             return
         try:
@@ -204,6 +218,7 @@ class PostgresBackend(BaseMemoryBackend):
             logger.warning("Failed to sync to Postgres: %s", exc)
 
     def close(self) -> None:
+        """Close the PostgreSQL connection."""
         if self._conn is not None:
             try:
                 self._conn.close()
@@ -217,6 +232,10 @@ class HybridBackend(BaseMemoryBackend):
 
     Internally manages its own Redis and Postgres connections so that each
     partition is synced to the appropriate store without double-writing.
+
+    Args:
+        redis_url: Redis connection URL.
+        postgres_url: PostgreSQL connection URL.
     """
 
     def __init__(self, redis_url: str, postgres_url: str) -> None:
@@ -231,6 +250,7 @@ class HybridBackend(BaseMemoryBackend):
         self.keyword_index = self._redis.keyword_index
 
     def sync(self) -> None:
+        """Push episodic/keywords to Redis and long_term to Postgres."""
         # Push episodic/keyword_index to Redis, long_term to Postgres.
         self._redis.episodic = self.episodic
         self._redis.keyword_index = self.keyword_index
@@ -239,5 +259,6 @@ class HybridBackend(BaseMemoryBackend):
         self._postgres.sync()
 
     def close(self) -> None:
+        """Close both underlying backends."""
         self._redis.close()
         self._postgres.close()

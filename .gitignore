@@ -60,3 +60,6 @@ benchmark_results/
 # Misc
 *.log
 .DS_Store
+
+# MkDocs build output
+site/

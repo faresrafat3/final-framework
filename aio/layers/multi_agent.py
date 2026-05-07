@@ -10,12 +10,16 @@ from .multi_agent_backend import SimulatedMultiAgentBackend, LangGraphMultiAgent
 
 
 class MultiAgentCoordinator:
-    """Decomposes complex tasks across registered agents and synthesizes consensus.
+    """Layer 10 — Decomposes complex tasks across registered agents and synthesizes consensus.
 
     ``dispatch`` is backed by a pluggable backend.  When
     ``config.use_langgraph_backend`` is *True* the native LangGraph
     supervisor/hierarchical backend is used; otherwise the legacy simulated
     loop is used for backward compatibility.
+
+    Args:
+        config: Layer 10 configuration (agent count, consensus threshold, timeout).
+        observability: Shared observability layer for spans and metrics.
     """
 
     def __init__(self, config: MultiAgentConfig, observability: ObservabilityLayer) -> None:
@@ -33,6 +37,14 @@ class MultiAgentCoordinator:
             self._langgraph_backend = LangGraphMultiAgentBackend(config, observability, self._registry)
 
     def decompose(self, state: AIOState) -> AIOState:
+        """Break the current task into subtasks assigned to specialist agents.
+
+        Args:
+            state: Current :class:`AIOState`.
+
+        Returns:
+            Mutated state with ``coordination_plan``.
+        """
         start = time.time()
         with self.obs.start_span("multi_agent.decompose", state.get("trace_id")):
             intent = state.get("intent", "general")
@@ -51,11 +63,27 @@ class MultiAgentCoordinator:
         return state
 
     def dispatch(self, state: AIOState) -> AIOState:
+        """Run the selected backend to execute subtasks.
+
+        Args:
+            state: Current :class:`AIOState`.
+
+        Returns:
+            Mutated state with ``agent_outputs`` populated.
+        """
         if self._langgraph_backend is not None:
             return self._langgraph_backend.dispatch(state)
         return self._simulated_backend.dispatch(state)
 
     def aggregate(self, state: AIOState) -> AIOState:
+        """Compute a consensus score from per-agent confidences.
+
+        Args:
+            state: Current :class:`AIOState`.
+
+        Returns:
+            Mutated state with ``consensus_score``.
+        """
         start = time.time()
         with self.obs.start_span("multi_agent.aggregate", state.get("trace_id")):
             outputs = state.get("agent_outputs", {})
@@ -72,6 +100,14 @@ class MultiAgentCoordinator:
         return state
 
     def synthesize(self, state: AIOState) -> AIOState:
+        """Merge agent outputs into a unified plan string.
+
+        Args:
+            state: Current :class:`AIOState`.
+
+        Returns:
+            Mutated state with ``plan`` updated to the synthesized result.
+        """
         start = time.time()
         with self.obs.start_span("multi_agent.synthesize", state.get("trace_id")):
             outputs = state.get("agent_outputs", {})

@@ -369,7 +369,17 @@ class LLMPlanner:
 
 
 class PlanningLayer:
-    """Orchestrates all Layer 3 planners with escalation and rejection paths."""
+    """Layer 3 — Orchestrates all planners with escalation and rejection paths.
+
+    Composes HiPlan, FLARE, LWM, PPA, SPIRAL, MARS, MACI, VMAO, and an
+    optional LLM-backed planner.  Each sub-planner can be called individually
+    via the ``run_*`` methods, or the layer can be used through the
+    node wrappers in :mod:`aio.graph.nodes`.
+
+    Args:
+        config: Layer 3 configuration (depths, horizons, LLM settings).
+        observability: Shared observability layer for spans and metrics.
+    """
 
     def __init__(self, config: PlanningConfig, observability: ObservabilityLayer) -> None:
         self.config = config
@@ -394,6 +404,14 @@ class PlanningLayer:
         return f"Plan for intent='{intent}': 1) ingest input 2) retrieve memory [{snippets}] 3) verify 4) execute 5) finalize."
 
     def generate_plan(self, state: AIOState) -> AIOState:
+        """Generate a flat plan, preferring the LLM planner when enabled.
+
+        Args:
+            state: Current :class:`AIOState`.
+
+        Returns:
+            Mutated state with ``plan`` set.
+        """
         if self._llm_planner is not None:
             try:
                 state["plan"] = self._llm_planner.generate_plan(state)
@@ -405,6 +423,14 @@ class PlanningLayer:
         return state
 
     def run_hiplan(self, state: AIOState) -> AIOState:
+        """Build a hierarchical goal tree.
+
+        Args:
+            state: Current :class:`AIOState`.
+
+        Returns:
+            Mutated state with ``hierarchical_plan``.
+        """
         if self._llm_planner is not None:
             try:
                 state["hierarchical_plan"] = self._llm_planner.decompose_tasks(state)
@@ -416,6 +442,14 @@ class PlanningLayer:
         return state
 
     def run_flare(self, state: AIOState) -> AIOState:
+        """Run future-aware lookahead risk assessment.
+
+        Args:
+            state: Current :class:`AIOState`.
+
+        Returns:
+            Mutated state with ``lookahead_result``.
+        """
         if self._llm_planner is not None:
             try:
                 state["lookahead_result"] = self._llm_planner.lookahead_analysis(state)
@@ -427,10 +461,26 @@ class PlanningLayer:
         return state
 
     def run_lwm(self, state: AIOState) -> AIOState:
+        """Augment the plan with verified memory facts.
+
+        Args:
+            state: Current :class:`AIOState`.
+
+        Returns:
+            Mutated state with ``fact_augmented_plan``.
+        """
         state["fact_augmented_plan"] = self.lwm.augment(state)
         return state
 
     def run_ppa(self, state: AIOState) -> AIOState:
+        """Detect pitfalls and optionally block unsafe plans.
+
+        Args:
+            state: Current :class:`AIOState`.
+
+        Returns:
+            Mutated state with ``pitfall_analysis`` and possibly ``failure_state`` updated.
+        """
         if self._llm_planner is not None:
             try:
                 analysis = self._llm_planner.pitfall_analysis(state)
@@ -454,21 +504,61 @@ class PlanningLayer:
         return state
 
     def run_spiral(self, state: AIOState) -> AIOState:
+        """Run symbolic MCTS planning.
+
+        Args:
+            state: Current :class:`AIOState`.
+
+        Returns:
+            Mutated state with ``spiral_tree``.
+        """
         state["spiral_tree"] = self.spiral.mcts_plan(state)
         return state
 
     def run_mars(self, state: AIOState) -> AIOState:
+        """Run one-shot self-reflection on the current plan.
+
+        Args:
+            state: Current :class:`AIOState`.
+
+        Returns:
+            Mutated state with ``mars_reflection``.
+        """
         state["mars_reflection"] = self.mars.reflect(state)
         return state
 
     def run_maci(self, state: AIOState) -> AIOState:
+        """Select the most appropriate planner for the current intent.
+
+        Args:
+            state: Current :class:`AIOState`.
+
+        Returns:
+            Mutated state with ``maci_meta_plan``.
+        """
         state["maci_meta_plan"] = self.maci.select_planner(state)
         return state
 
     def run_vmao_decompose(self, state: AIOState) -> AIOState:
+        """Decompose the plan into a DAG of executable nodes.
+
+        Args:
+            state: Current :class:`AIOState`.
+
+        Returns:
+            Mutated state with ``vmao_dag``.
+        """
         state["vmao_dag"] = self.vmao.decompose(state)
         return state
 
     def run_vmao_replan(self, state: AIOState) -> AIOState:
+        """Replan failed DAG nodes.
+
+        Args:
+            state: Current :class:`AIOState`.
+
+        Returns:
+            Mutated state with updated ``vmao_dag``.
+        """
         state["vmao_dag"] = self.vmao.replan(state)
         return state

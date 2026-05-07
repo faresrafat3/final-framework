@@ -1,3 +1,12 @@
+"""AIO Framework CLI entrypoints.
+
+Provides three subcommands:
+
+* ``aio run`` – build the graph and invoke a single query.
+* ``aio benchmark`` – delegate to the benchmark suite.
+* ``aio dashboard`` – start the FastAPI governance dashboard.
+"""
+
 from __future__ import annotations
 
 import argparse
@@ -7,6 +16,14 @@ from typing import Sequence
 
 
 def _cmd_run(argv: Sequence[str] | None = None) -> int:
+    """Run a single query through the compiled AIO graph and print JSON output.
+
+    Args:
+        argv: Command-line tokens (defaults to ``sys.argv[1:]`` when *None*).
+
+    Returns:
+        Shell exit code (``0`` on success).
+    """
     parser = argparse.ArgumentParser(description="Run the AIO framework on a single input.")
     parser.add_argument("query", nargs="?", default="echo hello world", help="Input query string")
     parser.add_argument("--session-id", default=None, help="Optional session identifier")
@@ -32,11 +49,20 @@ def _cmd_run(argv: Sequence[str] | None = None) -> int:
 
 
 def _cmd_benchmark(argv: Sequence[str] | None = None) -> int:
+    """Delegate to the benchmark suite CLI."""
     from .benchmark.cli import main as benchmark_main
     return benchmark_main(argv)
 
 
 def _cmd_dashboard(argv: Sequence[str] | None = None) -> int:
+    """Start the governance dashboard via Uvicorn.
+
+    Args:
+        argv: Command-line tokens parsed for ``--host``, ``--port``, ``--reload``.
+
+    Returns:
+        Shell exit code (``0``).  This function blocks while Uvicorn runs.
+    """
     parser = argparse.ArgumentParser(description="Start the AIO Governance Dashboard.")
     parser.add_argument("--host", default="0.0.0.0", help="Bind host")
     parser.add_argument("--port", type=int, default=8000, help="Bind port")
@@ -63,6 +89,14 @@ def _cmd_dashboard(argv: Sequence[str] | None = None) -> int:
 
 
 def main(argv: Sequence[str] | None = None) -> int:
+    """AIO Framework unified CLI dispatcher.
+
+    Args:
+        argv: Command-line tokens.  When *None* ``sys.argv[1:]`` is used.
+
+    Returns:
+        Shell exit code.
+    """
     parser = argparse.ArgumentParser(prog="aio", description="AIO Framework CLI")
     subparsers = parser.add_subparsers(dest="command")
 
