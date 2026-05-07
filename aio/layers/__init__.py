@@ -31,6 +31,13 @@ from .multi_agent import MultiAgentCoordinator
 from .multi_agent_backend import SimulatedMultiAgentBackend, LangGraphMultiAgentBackend
 from .safety_governance import SafetyGovernance
 from .cognitive_immune import CognitiveImmuneSystem
+from .neuro_symbolic import (
+    NeuroSymbolicMandate,
+    SymbolicEngine,
+    SymbolicRule,
+    KnowledgeGraph,
+    FormalVerifier,
+)
 
 __all__ = [
     "ObservabilityLayer",
@@ -69,4 +76,9 @@ __all__ = [
     "LangGraphMultiAgentBackend",
     "SafetyGovernance",
     "CognitiveImmuneSystem",
+    "NeuroSymbolicMandate",
+    "SymbolicEngine",
+    "SymbolicRule",
+    "KnowledgeGraph",
+    "FormalVerifier",
 ]

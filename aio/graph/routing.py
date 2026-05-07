@@ -89,3 +89,18 @@ def route_post_finalize(state: AIOState, config: "AIOConfig") -> str:
 
 def route_self_evolution(state: AIOState, config: "AIOConfig") -> str:
     return END
+
+
+def route_neuro_symbolic(state: AIOState, config: "AIOConfig") -> str:
+    if not config.neuro_symbolic.enable:
+        return "verify_plan"
+    verdict = state.get("neuro_symbolic_verdict", {})
+    if verdict.get("passed") is False:
+        return "debug_and_replan"
+    return "neuro_symbolic_synthesize"
+
+
+def route_post_neuro_symbolic(state: AIOState, config: "AIOConfig") -> str:
+    if not config.neuro_symbolic.enable:
+        return "gstep_evaluate"
+    return "gstep_evaluate"

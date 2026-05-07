@@ -136,6 +136,12 @@ class AIOState(TypedDict, total=False):
     mcp_discovered_tools: Optional[List[str]]
     mcp_execution_metadata: Optional[Dict[str, Any]]
     mcp_errors: Optional[List[str]]
+    # Neuro-Symbolic Mandate
+    neuro_symbolic_plan: Optional[Dict[str, Any]]
+    neuro_symbolic_inference: Optional[Dict[str, Any]]
+    neuro_symbolic_grounding: Optional[List[Dict[str, Any]]]
+    neuro_symbolic_verdict: Optional[Dict[str, Any]]
+    neuro_symbolic_confidence: Optional[float]
 
 
 def make_initial_state(raw_input: str = "", session_id: Optional[str] = None) -> AIOState:
@@ -213,4 +219,9 @@ def make_initial_state(raw_input: str = "", session_id: Optional[str] = None) ->
         "mcp_discovered_tools": None,
         "mcp_execution_metadata": None,
         "mcp_errors": None,
+        "neuro_symbolic_plan": None,
+        "neuro_symbolic_inference": None,
+        "neuro_symbolic_grounding": None,
+        "neuro_symbolic_verdict": None,
+        "neuro_symbolic_confidence": None,
         }

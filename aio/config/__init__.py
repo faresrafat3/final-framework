@@ -13,6 +13,7 @@ from .models import (
     MultiAgentConfig,
     SafetyGovernanceConfig,
     CognitiveImmuneConfig,
+    NeuroSymbolicConfig,
     GovernanceDashboardConfig,
     MCPConfig,
     MCPServerConfig,
@@ -43,6 +44,7 @@ from .deps import (
     DEFAULT_MCP_ENABLE,
     DEFAULT_MCP_SERVERS_JSON,
     DEFAULT_MCP_TIMEOUT_SECONDS,
+    DEFAULT_NEURO_SYMBOLIC_ENABLE,
     HTTPX_AVAILABLE,
 )
 
@@ -61,6 +63,7 @@ __all__ = [
     "MultiAgentConfig",
     "SafetyGovernanceConfig",
     "CognitiveImmuneConfig",
+    "NeuroSymbolicConfig",
     "GovernanceDashboardConfig",
     "MCPConfig",
     "MCPServerConfig",
@@ -89,5 +92,6 @@ __all__ = [
     "DEFAULT_MCP_ENABLE",
     "DEFAULT_MCP_SERVERS_JSON",
     "DEFAULT_MCP_TIMEOUT_SECONDS",
+    "DEFAULT_NEURO_SYMBOLIC_ENABLE",
     "HTTPX_AVAILABLE",
 ]
