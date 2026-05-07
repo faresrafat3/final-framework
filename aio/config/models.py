@@ -205,6 +205,32 @@ class FailureRecoveryConfig(BaseModel):
     escalation_threshold: int = 3
 
 
+class NeuroSymbolicConfig(BaseModel):
+    """Neuro-Symbolic Mandate configuration for hybrid neural + symbolic reasoning.
+
+    Attributes:
+        enable: Master switch for the neuro-symbolic pipeline.
+        enable_llm_parsing: Whether to use an LLM for parsing natural-language plans.
+        llm_parser_provider: ``openai`` or ``anthropic``.
+        llm_parser_model: Model identifier for the LLM parser.
+        llm_parser_temperature: Sampling temperature for LLM parsing calls.
+        llm_parser_max_tokens: Max tokens per LLM parsing call.
+        max_inference_depth: Maximum depth for symbolic forward-chaining inference.
+        max_plan_length: Upper bound on plan length for formal checks.
+        custom_rules_json: Optional JSON array of custom symbolic rules.
+    """
+
+    enable: bool = Field(default_factory=lambda: os.getenv("NEURO_SYMBOLIC_ENABLE", "true").lower() == "true")
+    enable_llm_parsing: bool = Field(default_factory=lambda: os.getenv("NEURO_SYMBOLIC_LLM_PARSING", "false").lower() == "true")
+    llm_parser_provider: str = Field(default_factory=lambda: os.getenv("NEURO_SYMBOLIC_LLM_PROVIDER", "openai"))
+    llm_parser_model: str = Field(default_factory=lambda: os.getenv("NEURO_SYMBOLIC_LLM_MODEL", "gpt-4o"))
+    llm_parser_temperature: float = Field(default_factory=lambda: float(os.getenv("NEURO_SYMBOLIC_LLM_TEMPERATURE", "0.2")))
+    llm_parser_max_tokens: int = Field(default_factory=lambda: int(os.getenv("NEURO_SYMBOLIC_LLM_MAX_TOKENS", "1024")))
+    max_inference_depth: int = 5
+    max_plan_length: int = 5000
+    custom_rules_json: Optional[str] = Field(default_factory=lambda: os.getenv("NEURO_SYMBOLIC_CUSTOM_RULES", None))
+
+
 class SelfEvolutionConfig(BaseModel):
     """Layer 9 configuration for self-evolution & performance analysis.
 
@@ -417,6 +443,7 @@ class AIOConfig(BaseModel):
         multi_agent: Layer 10 — task decomposition and consensus scoring.
         safety_governance: Layer 11 — audit, compliance, governance voting.
         cognitive_immune: Layer 12 — anomaly scanning and auto-healing.
+        neuro_symbolic: Neuro-Symbolic Mandate — hybrid neural + symbolic reasoning.
         governance_dashboard: Optional FastAPI dashboard bindings.
         mcp: Model Context Protocol client settings.
         enable_priority_3: Global toggle for Priority 3 layers (9–12).
@@ -435,6 +462,7 @@ class AIOConfig(BaseModel):
     multi_agent: MultiAgentConfig = Field(default_factory=MultiAgentConfig)
     safety_governance: SafetyGovernanceConfig = Field(default_factory=SafetyGovernanceConfig)
     cognitive_immune: CognitiveImmuneConfig = Field(default_factory=CognitiveImmuneConfig)
+    neuro_symbolic: NeuroSymbolicConfig = Field(default_factory=NeuroSymbolicConfig)
     governance_dashboard: GovernanceDashboardConfig = Field(default_factory=GovernanceDashboardConfig)
     mcp: MCPConfig = Field(default_factory=MCPConfig)
     streaming: StreamingConfig = Field(default_factory=StreamingConfig)

@@ -15,6 +15,7 @@ from ..layers.self_evolution import SelfEvolutionLayer
 from ..layers.multi_agent import MultiAgentCoordinator
 from ..layers.safety_governance import SafetyGovernance
 from ..layers.cognitive_immune import CognitiveImmuneSystem
+from ..layers.neuro_symbolic import NeuroSymbolicMandate
 from ..state import AIOState
 
 
@@ -62,6 +63,11 @@ _LAYER_MAP: dict[str, tuple[str, int]] = {
     "multi_agent_synthesize": ("Layer 10 — Multi-Agent", 10),
     "safety_governance_audit": ("Layer 11 — Safety & Governance", 11),
     "cognitive_immune_scan": ("Layer 12 — Cognitive Immune", 12),
+    "neuro_symbolic_parse": ("Neuro-Symbolic Mandate", 13),
+    "neuro_symbolic_infer": ("Neuro-Symbolic Mandate", 13),
+    "neuro_symbolic_ground": ("Neuro-Symbolic Mandate", 13),
+    "neuro_symbolic_verify": ("Neuro-Symbolic Mandate", 13),
+    "neuro_symbolic_synthesize": ("Neuro-Symbolic Mandate", 13),
 }
 
 
@@ -342,3 +348,25 @@ def node_cognitive_immune_scan(state: AIOState, layer: CognitiveImmuneSystem, st
     state = layer.heal(state)
     state = layer.update_immunity(state)
     return state
+
+
+# Neuro-Symbolic Mandate nodes
+
+def node_neuro_symbolic_parse(state: AIOState, layer: NeuroSymbolicMandate, streaming_manager: Any = None) -> AIOState:
+    return layer.parse_to_logic(state)
+
+
+def node_neuro_symbolic_infer(state: AIOState, layer: NeuroSymbolicMandate, streaming_manager: Any = None) -> AIOState:
+    return layer.infer(state)
+
+
+def node_neuro_symbolic_ground(state: AIOState, layer: NeuroSymbolicMandate, streaming_manager: Any = None) -> AIOState:
+    return layer.ground_knowledge(state)
+
+
+def node_neuro_symbolic_verify(state: AIOState, layer: NeuroSymbolicMandate, streaming_manager: Any = None) -> AIOState:
+    return layer.verify_constraints(state)
+
+
+def node_neuro_symbolic_synthesize(state: AIOState, layer: NeuroSymbolicMandate, streaming_manager: Any = None) -> AIOState:
+    return layer.synthesize(state)

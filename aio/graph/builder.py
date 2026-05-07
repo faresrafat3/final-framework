@@ -20,6 +20,7 @@ from ..layers.self_evolution import SelfEvolutionLayer
 from ..layers.multi_agent import MultiAgentCoordinator
 from ..layers.safety_governance import SafetyGovernance
 from ..layers.cognitive_immune import CognitiveImmuneSystem
+from ..layers.neuro_symbolic import NeuroSymbolicMandate
 from ..state import AIOState
 from .nodes import (
     node_context_ingest,
@@ -64,6 +65,11 @@ from .nodes import (
     node_multi_agent_synthesize,
     node_safety_governance_audit,
     node_cognitive_immune_scan,
+    node_neuro_symbolic_parse,
+    node_neuro_symbolic_infer,
+    node_neuro_symbolic_ground,
+    node_neuro_symbolic_verify,
+    node_neuro_symbolic_synthesize,
 )
 from .routing import (
     route_memory_confidence,
@@ -77,6 +83,8 @@ from .routing import (
     route_safety_governance,
     route_post_finalize,
     route_self_evolution,
+    route_neuro_symbolic,
+    route_post_neuro_symbolic,
 )
 
 
@@ -244,6 +252,7 @@ def build_aio_graph(
     multi_agent = MultiAgentCoordinator(cfg.multi_agent, obs)
     governance = SafetyGovernance(cfg.safety_governance, obs, store=store)
     immune = CognitiveImmuneSystem(cfg.cognitive_immune, obs)
+    ns_mandate = NeuroSymbolicMandate(cfg.neuro_symbolic, obs)
 
     _add("self_evolution_analyze", lambda s: node_self_evolution_analyze(s, self_evol))
     _add("multi_agent_decompose", lambda s: node_multi_agent_decompose(s, multi_agent))
@@ -252,6 +261,13 @@ def build_aio_graph(
     _add("multi_agent_synthesize", lambda s: node_multi_agent_synthesize(s, multi_agent))
     _add("safety_governance_audit", lambda s: node_safety_governance_audit(s, governance))
     _add("cognitive_immune_scan", lambda s: node_cognitive_immune_scan(s, immune))
+
+    # Neuro-Symbolic Mandate nodes
+    _add("neuro_symbolic_parse", lambda s: node_neuro_symbolic_parse(s, ns_mandate))
+    _add("neuro_symbolic_infer", lambda s: node_neuro_symbolic_infer(s, ns_mandate))
+    _add("neuro_symbolic_ground", lambda s: node_neuro_symbolic_ground(s, ns_mandate))
+    _add("neuro_symbolic_verify", lambda s: node_neuro_symbolic_verify(s, ns_mandate))
+    _add("neuro_symbolic_synthesize", lambda s: node_neuro_symbolic_synthesize(s, ns_mandate))
 
     # Finalize
     _add("finalize_output", node_finalize_output)
@@ -295,7 +311,15 @@ def build_aio_graph(
     graph.add_edge("spiral_mcts", "mars_reflect")
     graph.add_edge("mars_reflect", "vmao_decompose")
     graph.add_conditional_edges("vmao_decompose", lambda s: route_safety_governance(s, cfg))
-    graph.add_edge("safety_governance_audit", "verify_plan")
+    graph.add_edge("safety_governance_audit", "neuro_symbolic_parse")
+
+    # Neuro-Symbolic branch (runs before verification when enabled)
+    graph.add_edge("neuro_symbolic_parse", "neuro_symbolic_infer")
+    graph.add_edge("neuro_symbolic_infer", "neuro_symbolic_ground")
+    graph.add_edge("neuro_symbolic_ground", "neuro_symbolic_verify")
+    graph.add_conditional_edges("neuro_symbolic_verify", lambda s: route_neuro_symbolic(s, cfg))
+    graph.add_edge("neuro_symbolic_synthesize", "verify_plan")
+    graph.add_edge("debug_and_replan", "neuro_symbolic_parse")
 
     # Verification branch
     graph.add_conditional_edges("verify_plan", route_verification)

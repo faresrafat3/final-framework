@@ -34,6 +34,7 @@ from .config.models import (
     MultiAgentConfig,
     SafetyGovernanceConfig,
     CognitiveImmuneConfig,
+    NeuroSymbolicConfig,
     GovernanceDashboardConfig,
     MCPConfig,
     MCPServerConfig,
@@ -68,6 +69,7 @@ from .config.deps import (
     DEFAULT_MCP_ENABLE,
     DEFAULT_MCP_SERVERS_JSON,
     DEFAULT_MCP_TIMEOUT_SECONDS,
+    DEFAULT_NEURO_SYMBOLIC_ENABLE,
     HTTPX_AVAILABLE,
     PSUTIL_AVAILABLE,
     JINJA2_AVAILABLE,
@@ -106,6 +108,13 @@ from .layers.multi_agent_backend import SimulatedMultiAgentBackend, LangGraphMul
 from .layers.safety_governance import SafetyGovernance
 from .layers.cognitive_immune import CognitiveImmuneSystem
 from .layers.immune_learning import ImmuneLearningEngine
+from .layers.neuro_symbolic import (
+    NeuroSymbolicMandate,
+    SymbolicEngine,
+    SymbolicRule,
+    KnowledgeGraph,
+    FormalVerifier,
+)
 from .state import AIOState, make_initial_state
 from .graph.builder import build_aio_graph
 from .dashboard.store import AuditStore
@@ -195,6 +204,11 @@ from .graph.nodes import (
     node_multi_agent_synthesize,
     node_safety_governance_audit,
     node_cognitive_immune_scan,
+    node_neuro_symbolic_parse,
+    node_neuro_symbolic_infer,
+    node_neuro_symbolic_ground,
+    node_neuro_symbolic_verify,
+    node_neuro_symbolic_synthesize,
 )
 from .graph.routing import (
     route_memory_confidence,
@@ -209,6 +223,8 @@ from .graph.routing import (
     route_safety_governance,
     route_post_finalize,
     route_self_evolution,
+    route_neuro_symbolic,
+    route_post_neuro_symbolic,
 )
 
 __all__ = [
@@ -226,6 +242,7 @@ __all__ = [
     "MultiAgentConfig",
     "SafetyGovernanceConfig",
     "CognitiveImmuneConfig",
+    "NeuroSymbolicConfig",
     "GovernanceDashboardConfig",
     "MCPConfig",
     "MCPServerConfig",
@@ -257,6 +274,7 @@ __all__ = [
     "DEFAULT_MCP_ENABLE",
     "DEFAULT_MCP_SERVERS_JSON",
     "DEFAULT_MCP_TIMEOUT_SECONDS",
+    "DEFAULT_NEURO_SYMBOLIC_ENABLE",
     "HTTPX_AVAILABLE",
     "PSUTIL_AVAILABLE",
     "JINJA2_AVAILABLE",
@@ -297,6 +315,11 @@ __all__ = [
     "SafetyGovernance",
     "CognitiveImmuneSystem",
     "ImmuneLearningEngine",
+    "NeuroSymbolicMandate",
+    "SymbolicEngine",
+    "SymbolicRule",
+    "KnowledgeGraph",
+    "FormalVerifier",
     "AuditStore",
     "create_dashboard_app",
     "BenchmarkConfig",
@@ -359,6 +382,11 @@ __all__ = [
     "node_multi_agent_synthesize",
     "node_safety_governance_audit",
     "node_cognitive_immune_scan",
+    "node_neuro_symbolic_parse",
+    "node_neuro_symbolic_infer",
+    "node_neuro_symbolic_ground",
+    "node_neuro_symbolic_verify",
+    "node_neuro_symbolic_synthesize",
     "route_memory_confidence",
     "route_verification",
     "route_failure",
@@ -371,4 +399,6 @@ __all__ = [
     "route_safety_governance",
     "route_post_finalize",
     "route_self_evolution",
+    "route_neuro_symbolic",
+    "route_post_neuro_symbolic",
 ]
