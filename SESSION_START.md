@@ -58,6 +58,7 @@
 | Priority 3 | 9, 10, 11, 12 | Complete | Unit + Integration + Immune |
 | Priority 4 | Modularization, Persistent Memory, Immune Learning, Multi-Agent Real Dispatch, Governance Dashboard | Complete | Unit + Integration |
 | Priority 5 | MCP (Model Context Protocol) Integration | Complete | Unit + Integration |
+| Priority 6 | Performance Benchmark Suite | Complete | Unit + Integration |
 
 ---
 
@@ -90,6 +91,12 @@
 | `tests/failure_injection/test_*.py` | Chaos and immune response tests | 2 files |
 | `docker-compose.yml` | Observability stack (OTel, Prometheus, Grafana, Jaeger) | — |
 | `requirements.txt` | Python dependencies (~12 core + optional) | — |
+| `aio/benchmark/` | Benchmark suite subpackage (collector, runner, reporter, regression, CLI) | — |
+| `aio/benchmark/collector.py` | `BenchmarkCollector` observability interception | ~160 |
+| `aio/benchmark/runner.py` | `BenchmarkRunner` scenario execution | ~170 |
+| `aio/benchmark/reporter.py` | JSON and HTML reporters | ~130 |
+| `aio/benchmark/regression.py` | `RegressionDetector` baseline comparison | ~120 |
+| `aio/benchmark/cli.py` | `argparse` entry point for CI | ~90 |
 
 ---
 
@@ -121,6 +128,15 @@ python -c "from aio import build_aio_graph, AIOConfig; build_aio_graph(AIOConfig
 
 # Graph compilation smoke test (Priority 3 disabled)
 ENABLE_PRIORITY_3=false python -c "from aio import build_aio_graph, AIOConfig; build_aio_graph(AIOConfig())"
+
+# Run benchmark suite
+python -m aio.benchmark.cli
+
+# Run benchmark with custom scenarios
+python -m aio.benchmark.cli --scenarios echo,safety_block --iterations 5
+
+# Run benchmark tests only
+pytest tests/unit/test_benchmark_collector.py tests/unit/test_benchmark_reporter.py tests/unit/test_benchmark_regression.py tests/integration/test_benchmark_suite.py -v
 ```
 
 ---
@@ -171,10 +187,12 @@ If context is lost between sessions:
 - **Package core**: All layer classes live in `aio/layers/`. `aio_framework.py` is a backward-compatible re-export shim (preserves old import paths).
 - **Additive only**: Never remove existing state fields from `AIOState`. Use `total=False` TypedDict.
 - **Feature flags**: All new functionality is gated by env-driven flags (e.g., `ENABLE_PRIORITY_3`, `MEMORY_BACKEND_TYPE`, `COGNITIVE_IMMUNE_LEARN_ENABLE`, `MULTI_AGENT_USE_LANGGRAPH_BACKEND`, `GOVERNANCE_DASHBOARD_ENABLE`).
+- **Benchmark Suite feature flags**: `BENCHMARK_ITERATIONS`, `BENCHMARK_WARMUP_ITERATIONS`, `BENCHMARK_SCENARIOS`, `BENCHMARK_BASELINE_PATH`, `BENCHMARK_REGRESSION_THRESHOLD_PERCENT`, `BENCHMARK_OUTPUT_DIR`, `BENCHMARK_ENABLE_MEMORY_PROFILING`, `BENCHMARK_ENABLE_HTML_REPORT`.
 - **Observability**: Every layer method wraps logic in `self.obs.start_span()` and calls `record_latency()` + `count_node()`.
 - **Graceful degradation**: All external dependencies are optional with feature flags (`OTEL_AVAILABLE`, `REDIS_AVAILABLE`, `PSYCOPG2_AVAILABLE`, `HTTPX_AVAILABLE`, etc.).
 - **No new required dependencies**: Priority 4 added `redis>=5.0.0` and `psycopg2-binary>=2.9.0` to `requirements.txt`, but both are optional at runtime (guarded by availability checks and feature flags). Priority 5 uses existing `httpx>=0.25.0` for MCP SSE transport.
+- **Benchmark optional dependencies**: `psutil` enables RSS memory profiling in `BenchmarkCollector`; `jinja2` enables rich HTML templating in `HTMLReporter`. Both are runtime-guarded (`PSUTIL_AVAILABLE`, `JINJA2_AVAILABLE`) with graceful fallback to `tracemalloc` and plain HTML respectively.
 
 ---
 
-*Last updated: Post-PR #10 — MCP Integration (Priority 5)*
+*Last updated: Post-PR #11 — Benchmark Suite (Priority 6)*
