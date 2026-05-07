@@ -72,11 +72,11 @@
 
 ## 4. In-Flight Work
 
-> Priority 5 is complete.
+> Priority 6 is complete.
 
 ---
 
-## 5. Ordered Next Steps (Post-Priority 5)
+## 5. Ordered Next Steps (Post-Priority 6)
 
 1. ~~Modularize `aio_framework.py`~~ ✅ Done — split into `aio/` package with `layers/`, `config/`, `graph/` submodules.
 2. ~~Real embedding integration~~ ✅ Done — integrated behind `ENABLE_REAL_EMBEDDINGS` flag.
@@ -86,6 +86,7 @@
 6. ~~Multi-agent real dispatch~~ ✅ Done — LangGraph supervisor/hierarchical sub-graph backend integrated behind `MultiAgentCoordinator`; simulated backend remains as fallback.
 7. ~~Governance dashboard~~ ✅ Done — FastAPI/Jinja2 dashboard with `AuditStore`, summary page, session detail, and REST API endpoints.
 8. ~~MCP integration~~ ✅ Done — `MCPClient` with stdio/SSE transports, JSON-RPC 2.0, dynamic tool discovery, ToolGate delegation behind `MCP_ENABLE` flag.
+9. ~~Benchmark Suite~~ ✅ Done — `aio/benchmark/` subpackage with collector, runner, reporters, regression detector, and CLI.
 
 ---
 
@@ -117,6 +118,9 @@ langchain-anthropic: >=0.1.0 (optional)
 
 **New dependencies added in Priority 5:**
 - None — `httpx>=0.25.0` already in `requirements.txt`; MCP client uses raw JSON-RPC 2.0 with optional `httpx` for SSE transport.
+
+**New dependencies added in Priority 6:**
+- None — `psutil` and `jinja2` are optional runtime dependencies for benchmark memory profiling (`BENCHMARK_ENABLE_MEMORY_PROFILING`) and HTML reports (`BENCHMARK_ENABLE_HTML_REPORT`). Both are runtime-guarded with graceful fallback to `tracemalloc` and plain HTML when unavailable.
 
 ---
 

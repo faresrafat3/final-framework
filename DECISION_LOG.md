@@ -36,6 +36,7 @@
 | D021 | 2024-05-06 | LangGraph multi-agent backend abstraction | Simulated dispatch was sufficient for standalone testing but production needs real agent orchestration | Adds `LangGraphMultiAgentBackend` with supervisor sub-graph pattern; `MultiAgentCoordinator` switches backends via `use_langgraph_backend` config; automatic fallback to `SimulatedMultiAgentBackend` on any exception | Active |
 | D022 | 2024-05-06 | Optional governance dashboard module (FastAPI + Jinja2) | Safety & Governance layer produces audit trails and violations but lacks operational visibility | Adds `aio/dashboard/` package with `AuditStore`, `create_dashboard_app`, and `runner.py`; entirely optional and disabled by default (`GOVERNANCE_DASHBOARD_ENABLE=false`); no impact on core graph when disabled | Active |
 | D023 | 2024-05-07 | MCP (Model Context Protocol) integration as Priority 5 | Agents need to consume external tools exposed by MCP servers (e.g., filesystem, GitHub) without hardcoding adapters | Adds raw JSON-RPC 2.0 client with stdio and SSE transports; integrates into `ToolGate` behind `MCP_ENABLE` flag; namespaced tool names (`mcp/<server>/<tool>`); graceful degradation when server is unreachable; no new required dependencies (`httpx` already in `requirements.txt`) | Active |
+| D024 | 2024-05-08 | Performance Benchmark Suite (`aio/benchmark/`) as Priority 6 | Core framework needs reproducible performance regression detection and CI-friendly benchmarking without modifying layer code | Adds `BenchmarkCollector` that monkey-patches `ObservabilityLayer` to intercept latencies/counts; `BenchmarkRunner` executes built-in scenarios against compiled graph; `JSONReporter` + `HTMLReporter` (Jinja2 fallback); `RegressionDetector` compares against baseline JSON; CLI exits non-zero on regression; all optional deps (`psutil`, `jinja2`) guarded with graceful degradation | Active |
 
 ---
 
@@ -47,4 +48,4 @@
 
 ---
 
-*Last updated: Post-PR #8 and #9 — Multi-Agent Real Dispatch + Governance Dashboard*
+*Last updated: Post-PR #11 — Benchmark Suite (Priority 6)*
