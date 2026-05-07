@@ -54,6 +54,9 @@ otel-collector-config.yml
 prometheus.yml
 grafana/
 
+# Benchmark results
+benchmark_results/
+
 # Misc
 *.log
 .DS_Store

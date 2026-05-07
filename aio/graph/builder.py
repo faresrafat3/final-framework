@@ -80,10 +80,14 @@ from .routing import (
 )
 
 
-def build_aio_graph(config: Optional[AIOConfig] = None, store: Optional[Any] = None) -> Any:
+def build_aio_graph(
+    config: Optional[AIOConfig] = None,
+    store: Optional[Any] = None,
+    observability_layer: Optional[ObservabilityLayer] = None,
+) -> Any:
     """Build and compile the Priority 2 AIO StateGraph."""
     cfg = config or AIOConfig()
-    obs = ObservabilityLayer(cfg.observability)
+    obs = observability_layer or ObservabilityLayer(cfg.observability)
     ctx_mgr = ContextManager(cfg.context, obs)
     mem = MemoryBridge(cfg.memory, obs)
     planning = PlanningLayer(cfg.planning, obs)

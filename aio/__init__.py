@@ -18,6 +18,7 @@ from .config.models import (
     GovernanceDashboardConfig,
     MCPConfig,
     MCPServerConfig,
+    BenchmarkConfig,
 )
 from .config.deps import (
     OTEL_AVAILABLE,
@@ -48,6 +49,8 @@ from .config.deps import (
     DEFAULT_MCP_SERVERS_JSON,
     DEFAULT_MCP_TIMEOUT_SECONDS,
     HTTPX_AVAILABLE,
+    PSUTIL_AVAILABLE,
+    JINJA2_AVAILABLE,
 )
 from .layers.observability import ObservabilityLayer, _NullContext
 from .layers.context import ContextManager
@@ -91,6 +94,23 @@ try:
     from .dashboard.app import create_dashboard_app
 except Exception:  # pragma: no cover
     create_dashboard_app = None  # type: ignore[misc,assignment]
+
+try:
+    from .benchmark import (
+        BenchmarkCollector,
+        BenchmarkRunner,
+        JSONReporter,
+        HTMLReporter,
+        RegressionDetector,
+        main as benchmark_main,
+    )
+except Exception:  # pragma: no cover
+    BenchmarkCollector = None  # type: ignore[misc,assignment]
+    BenchmarkRunner = None  # type: ignore[misc,assignment]
+    JSONReporter = None  # type: ignore[misc,assignment]
+    HTMLReporter = None  # type: ignore[misc,assignment]
+    RegressionDetector = None  # type: ignore[misc,assignment]
+    benchmark_main = None  # type: ignore[misc,assignment]
 
 from .graph.nodes import (
     node_context_ingest,
@@ -198,6 +218,8 @@ __all__ = [
     "DEFAULT_MCP_SERVERS_JSON",
     "DEFAULT_MCP_TIMEOUT_SECONDS",
     "HTTPX_AVAILABLE",
+    "PSUTIL_AVAILABLE",
+    "JINJA2_AVAILABLE",
     "ObservabilityLayer",
     "_NullContext",
     "ContextManager",
@@ -237,6 +259,13 @@ __all__ = [
     "ImmuneLearningEngine",
     "AuditStore",
     "create_dashboard_app",
+    "BenchmarkConfig",
+    "BenchmarkCollector",
+    "BenchmarkRunner",
+    "JSONReporter",
+    "HTMLReporter",
+    "RegressionDetector",
+    "benchmark_main",
     "AIOState",
     "make_initial_state",
     "build_aio_graph",

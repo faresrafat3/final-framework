@@ -176,6 +176,21 @@ def _parse_mcp_servers_json(raw: str) -> List[MCPServerConfig]:
     return []
 
 
+class BenchmarkConfig(BaseModel):
+    iterations: int = Field(default_factory=lambda: int(os.getenv("BENCHMARK_ITERATIONS", "10")))
+    warmup_iterations: int = Field(default_factory=lambda: int(os.getenv("BENCHMARK_WARMUP_ITERATIONS", "2")))
+    scenarios: List[str] = Field(default_factory=lambda: _parse_benchmark_scenarios(os.getenv("BENCHMARK_SCENARIOS", "echo,safety_block,failure_recovery,context_overflow,multi_agent")))
+    baseline_path: Optional[str] = Field(default_factory=lambda: os.getenv("BENCHMARK_BASELINE_PATH", None))
+    regression_threshold_percent: float = Field(default_factory=lambda: float(os.getenv("BENCHMARK_REGRESSION_THRESHOLD_PERCENT", "10.0")))
+    output_dir: str = Field(default_factory=lambda: os.getenv("BENCHMARK_OUTPUT_DIR", "./benchmark_results"))
+    enable_memory_profiling: bool = Field(default_factory=lambda: os.getenv("BENCHMARK_ENABLE_MEMORY_PROFILING", "true").lower() == "true")
+    enable_html_report: bool = Field(default_factory=lambda: os.getenv("BENCHMARK_ENABLE_HTML_REPORT", "true").lower() == "true")
+
+
+def _parse_benchmark_scenarios(raw: str) -> List[str]:
+    return [s.strip() for s in raw.split(",") if s.strip()]
+
+
 class AIOConfig(BaseModel):
     observability: ObservabilityConfig = Field(default_factory=ObservabilityConfig)
     context: ContextConfig = Field(default_factory=ContextConfig)
