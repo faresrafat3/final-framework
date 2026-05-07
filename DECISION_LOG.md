@@ -37,6 +37,7 @@
 | D022 | 2024-05-06 | Optional governance dashboard module (FastAPI + Jinja2) | Safety & Governance layer produces audit trails and violations but lacks operational visibility | Adds `aio/dashboard/` package with `AuditStore`, `create_dashboard_app`, and `runner.py`; entirely optional and disabled by default (`GOVERNANCE_DASHBOARD_ENABLE=false`); no impact on core graph when disabled | Active |
 | D023 | 2024-05-07 | MCP (Model Context Protocol) integration as Priority 5 | Agents need to consume external tools exposed by MCP servers (e.g., filesystem, GitHub) without hardcoding adapters | Adds raw JSON-RPC 2.0 client with stdio and SSE transports; integrates into `ToolGate` behind `MCP_ENABLE` flag; namespaced tool names (`mcp/<server>/<tool>`); graceful degradation when server is unreachable; no new required dependencies (`httpx` already in `requirements.txt`) | Active |
 | D024 | 2024-05-08 | Performance Benchmark Suite (`aio/benchmark/`) as Priority 6 | Core framework needs reproducible performance regression detection and CI-friendly benchmarking without modifying layer code | Adds `BenchmarkCollector` that monkey-patches `ObservabilityLayer` to intercept latencies/counts; `BenchmarkRunner` executes built-in scenarios against compiled graph; `JSONReporter` + `HTMLReporter` (Jinja2 fallback); `RegressionDetector` compares against baseline JSON; CLI exits non-zero on regression; all optional deps (`psutil`, `jinja2`) guarded with graceful degradation | Active |
+| D025 | 2024-05-09 | Modern Python packaging & distribution via `pyproject.toml`, console scripts, multi-stage Dockerfile, and GitHub Actions CI/CD | Project matured to a point where installability, reproducible builds, containerized deployment, and automated publishing were required for adoption. Priority 7 was created to address these needs without breaking existing import paths. | `pyproject.toml` becomes the canonical dependency and build metadata source; `requirements.txt` deprecated. Package version starts at `7.0.0` (semantic versioning aligned with Priority 7). Console scripts `aio` and `aio-benchmark` provide first-class CLI entry points. Multi-stage Dockerfile reduces final image size and installs `[all]` extras. CI tests across Python 3.10–3.12; PyPI publishing uses OIDC trusted publishing; Docker publishing uses Buildx for multi-arch images. `MANIFEST.in` ensures non-Python data (prompts, dashboard templates, `.env.example`) are included in sdists. `aio_framework.py` is declared via `py-modules` so root-level backward-compatible imports continue to work. | Active |
 
 ---
 
@@ -48,4 +49,4 @@
 
 ---
 
-*Last updated: Post-PR #11 — Benchmark Suite (Priority 6)*
+*Last updated: Post-PR #14 — Packaging & Distribution (Priority 7)*

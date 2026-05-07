@@ -2,6 +2,8 @@
 
 ## [7.0.0] — 2024-05-09
 
+Merged via PR #14.
+
 ### Added
 - **Packaging & Distribution — Priority 7**
   - `pyproject.toml` with PEP 621 metadata, `setuptools` build backend, and semantic versioning starting at `7.0.0`
@@ -35,6 +37,15 @@
 
 ### Preserved
 - Backward compatibility: `aio_framework.py` remains at repo root and is declared via `py-modules`; existing imports (`from aio_framework import ...`) continue to work unchanged
+
+### Metrics Targets
+| Metric | Target | Status |
+|--------|--------|--------|
+| Wheel + sdist build success | 100% | Verified in CI build job |
+| Docker image build success | 100% | Multi-stage Dockerfile builds cleanly |
+| CI test matrix (3.10–3.12) | 100% | All tests pass on matrix |
+| Backward compatibility (root shim import) | 100% | `aio_framework.py` import preserved |
+| Console script entry points | 100% | `aio` and `aio-benchmark` installable |
 
 ---
 

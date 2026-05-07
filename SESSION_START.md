@@ -59,6 +59,7 @@
 | Priority 4 | Modularization, Persistent Memory, Immune Learning, Multi-Agent Real Dispatch, Governance Dashboard | Complete | Unit + Integration |
 | Priority 5 | MCP (Model Context Protocol) Integration | Complete | Unit + Integration |
 | Priority 6 | Performance Benchmark Suite | Complete | Unit + Integration |
+| Priority 7 | Packaging & Distribution | Complete | CI + Smoke |
 
 ---
 
@@ -90,7 +91,14 @@
 | `tests/integration/test_*.py` | Cross-layer routing and E2E tests | 4 files |
 | `tests/failure_injection/test_*.py` | Chaos and immune response tests | 2 files |
 | `docker-compose.yml` | Observability stack (OTel, Prometheus, Grafana, Jaeger) | — |
-| `requirements.txt` | Python dependencies (~12 core + optional) | — |
+| `requirements.txt` | Deprecated; pointer to `pip install -e ".[dev]"` | — |
+| `pyproject.toml` | PEP 621 packaging metadata, extras, console scripts | — |
+| `aio/cli.py` | Unified CLI (`run`, `benchmark`, `dashboard`) | ~90 |
+| `Dockerfile` | Multi-stage builder + runtime image (`python:3.12-slim`) | — |
+| `.github/workflows/ci.yml` | Test matrix (3.10–3.12), build, artifact upload | — |
+| `.github/workflows/publish-pypi.yml` | Trusted publishing on `v*` tags | — |
+| `.github/workflows/publish-docker.yml` | Multi-arch build-push on `v*` tags | — |
+| `MANIFEST.in` | sdist inclusion rules for prompts, dashboard templates, `.env.example` | — |
 | `aio/benchmark/` | Benchmark suite subpackage (collector, runner, reporter, regression, CLI) | — |
 | `aio/benchmark/collector.py` | `BenchmarkCollector` observability interception | ~160 |
 | `aio/benchmark/runner.py` | `BenchmarkRunner` scenario execution | ~170 |
@@ -103,8 +111,8 @@
 ## 5. Build / Test / Run Commands
 
 ```bash
-# Install dependencies
-pip install -r requirements.txt
+# Install dependencies (development mode with all extras)
+pip install -e ".[dev]"
 
 # Run full test suite
 pytest tests/ -v --cov=aio --cov-report=term-missing
@@ -137,6 +145,15 @@ python -m aio.benchmark.cli --scenarios echo,safety_block --iterations 5
 
 # Run benchmark tests only
 pytest tests/unit/test_benchmark_collector.py tests/unit/test_benchmark_reporter.py tests/unit/test_benchmark_regression.py tests/integration/test_benchmark_suite.py -v
+
+# CLI entry points (installed via pyproject.toml console scripts)
+aio run "echo hello world"
+aio benchmark
+aio dashboard
+
+# Docker build and run
+docker build -t aio-framework .
+docker run aio-framework run "echo hello world"
 ```
 
 ---
@@ -192,7 +209,10 @@ If context is lost between sessions:
 - **Graceful degradation**: All external dependencies are optional with feature flags (`OTEL_AVAILABLE`, `REDIS_AVAILABLE`, `PSYCOPG2_AVAILABLE`, `HTTPX_AVAILABLE`, etc.).
 - **No new required dependencies**: Priority 4 added `redis>=5.0.0` and `psycopg2-binary>=2.9.0` to `requirements.txt`, but both are optional at runtime (guarded by availability checks and feature flags). Priority 5 uses existing `httpx>=0.25.0` for MCP SSE transport.
 - **Benchmark optional dependencies**: `psutil` enables RSS memory profiling in `BenchmarkCollector`; `jinja2` enables rich HTML templating in `HTMLReporter`. Both are runtime-guarded (`PSUTIL_AVAILABLE`, `JINJA2_AVAILABLE`) with graceful fallback to `tracemalloc` and plain HTML respectively.
+- **`pyproject.toml` is the single source of truth for dependencies**; `requirements.txt` is deprecated (pointer only).
+- **Optional features are installable as extras**: `dashboard`, `llm`, `embeddings`, `memory-redis`, `memory-postgres`, `benchmark`, `dev`, `all`.
+- **Console entry points** `aio` and `aio-benchmark` are defined in `pyproject.toml` `[project.scripts]`.
 
 ---
 
-*Last updated: Post-PR #11 — Benchmark Suite (Priority 6)*
+*Last updated: Post-PR #14 — Packaging & Distribution (Priority 7)*

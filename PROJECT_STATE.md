@@ -22,6 +22,7 @@
 | 11 | Safety & Governance | `SafetyGovernance` | `SafetyGovernanceConfig` | `audit_trail`, `governance_result`, `compliance_violations` | `node_safety_governance_audit` | `route_safety_governance` | `test_safety_governance.py` | ✅ Complete |
 | 12 | Cognitive Immune System | `CognitiveImmuneSystem` | `CognitiveImmuneConfig` | `immune_status`, `anomaly_score`, `quarantined_ids`, `healing_actions`, `threat_patterns_detected` | `node_cognitive_immune_scan` | `route_post_finalize` | `test_cognitive_immune.py` | ✅ Complete |
 | 6 | Benchmark Suite | `BenchmarkRunner` | `BenchmarkConfig` | — | — | — | `test_benchmark_collector.py`, `test_benchmark_reporter.py`, `test_benchmark_regression.py`, `test_benchmark_suite.py` | ✅ Complete |
+| — | Packaging & Distribution | — | — | — | — | — | CI / smoke tests | ✅ Complete |
 
 ---
 
@@ -67,12 +68,15 @@
 7. ~~Multi-agent dispatch is simulated~~ ✅ Done — real LangGraph backend available via `MULTI_AGENT_USE_LANGGRAPH_BACKEND`; simulated backend used as fallback.
 8. **Self-evolution auto-apply is bounded**: Only whitelisted config keys can be modified automatically.
 9. **MCP server sandboxing is the operator's responsibility**: MCP tools run in the MCP server's process; external sandboxing (e.g., Docker, firejail) should be configured by the operator.
+10. **`requirements.txt` is deprecated**; development installs should use `pip install -e ".[dev]"`.
+11. **Docker multi-arch builds** (`linux/amd64`, `linux/arm64`) require Docker Buildx; local builds default to host architecture.
+12. **CLI commands** (`aio run`, `aio benchmark`, `aio dashboard`) do not yet have dedicated unit tests; they are validated via CI smoke tests and manual invocation.
 
 ---
 
 ## 4. In-Flight Work
 
-> Priority 6 is complete.
+> Priority 7 is complete.
 
 ---
 
@@ -87,40 +91,41 @@
 7. ~~Governance dashboard~~ ✅ Done — FastAPI/Jinja2 dashboard with `AuditStore`, summary page, session detail, and REST API endpoints.
 8. ~~MCP integration~~ ✅ Done — `MCPClient` with stdio/SSE transports, JSON-RPC 2.0, dynamic tool discovery, ToolGate delegation behind `MCP_ENABLE` flag.
 9. ~~Benchmark Suite~~ ✅ Done — `aio/benchmark/` subpackage with collector, runner, reporters, regression detector, and CLI.
+10. ~~Packaging & Distribution~~ ✅ Done — `pyproject.toml`, CLI, Dockerfile, CI/CD workflows.
+
+> Next priorities to be determined.
 
 ---
 
 ## 6. Environment / Dependency Snapshot
 
 ```
-Python: 3.12+
-langgraph: >=0.0.50
-langchain: >=0.1.0
-pydantic: >=2.0
-opentelemetry-api/sdk/exporter-otlp: >=1.20
-prometheus-client: >=0.19
-docker: >=7.0
-pytest: >=8.0
-pytest-asyncio: >=0.23
-pytest-cov: >=4.1
-sentence-transformers: >=2.2.0
-redis: >=5.0.0
-psycopg2-binary: >=2.9.0
-langchain-openai: >=0.1.0 (optional)
-langchain-anthropic: >=0.1.0 (optional)
+requires-python = ">=3.10"
 ```
 
-**New dependencies added in Priority 4:**
-- `redis>=5.0.0` (optional, behind `MEMORY_BACKEND_TYPE` / `REDIS_URL` feature flags)
-- `psycopg2-binary>=2.9.0` (optional, behind `MEMORY_BACKEND_TYPE` / `POSTGRES_URL` / `COGNITIVE_IMMUNE_LEARN_ENABLE` feature flags)
-- `fastapi>=0.110.0` (optional, behind `GOVERNANCE_DASHBOARD_ENABLE`)
-- `uvicorn>=0.25.0` (optional, behind `GOVERNANCE_DASHBOARD_ENABLE`)
+**Core dependencies (from `pyproject.toml` `[project] dependencies`):**
+- `langgraph>=0.0.50`
+- `langchain>=0.1.0`
+- `langchain-core>=0.1.0`
+- `langsmith>=0.1.0`
+- `opentelemetry-api>=1.22.0`, `opentelemetry-sdk>=1.22.0`, `opentelemetry-exporter-otlp>=1.22.0`, `opentelemetry-instrumentation>=0.43b0`
+- `prometheus-client>=0.19.0`
+- `docker>=7.0.0`
+- `pydantic>=2.0.0`
+- `typing-extensions>=4.8.0`
+- `httpx>=0.25.0`
 
-**New dependencies added in Priority 5:**
-- None — `httpx>=0.25.0` already in `requirements.txt`; MCP client uses raw JSON-RPC 2.0 with optional `httpx` for SSE transport.
+**Optional extras (from `pyproject.toml` `[project.optional-dependencies]`):**
+- `dashboard` — `fastapi>=0.110.0`, `uvicorn>=0.25.0`, `jinja2>=3.0.0`
+- `llm` — `langchain-openai>=0.1.0`, `langchain-anthropic>=0.1.0`
+- `embeddings` — `sentence-transformers>=2.2.0`
+- `memory-redis` — `redis>=5.0.0`
+- `memory-postgres` — `psycopg2-binary>=2.9.0`
+- `benchmark` — `psutil>=5.9.0`, `jinja2>=3.0.0`
+- `dev` — `aio-framework[all]`, `pytest>=7.4.0`, `pytest-asyncio>=0.21.0`, `pytest-cov>=4.1.0`
+- `all` — union of all runtime extras
 
-**New dependencies added in Priority 6:**
-- None — `psutil` and `jinja2` are optional runtime dependencies for benchmark memory profiling (`BENCHMARK_ENABLE_MEMORY_PROFILING`) and HTML reports (`BENCHMARK_ENABLE_HTML_REPORT`). Both are runtime-guarded with graceful fallback to `tracemalloc` and plain HTML when unavailable.
+> **Note:** `requirements.txt` is deprecated. Use `pip install -e ".[dev]"` for development installs.
 
 ---
 
@@ -161,4 +166,4 @@ All flags are env-driven and checked at config initialization time.
 
 ---
 
-*Last updated: Post-PR #11 — Benchmark Suite (Priority 6)*
+*Last updated: Post-PR #14 — Packaging & Distribution (Priority 7)*
