@@ -58,6 +58,13 @@ from aio import (
     MCPServerConfig,
     AuditStore,
     create_dashboard_app,
+    BenchmarkConfig,
+    BenchmarkCollector,
+    BenchmarkRunner,
+    JSONReporter,
+    HTMLReporter,
+    RegressionDetector,
+    benchmark_main,
     MCPClient,
     MCPTransport,
     StdioTransport,
@@ -132,6 +139,8 @@ from aio import (
     DEFAULT_MCP_SERVERS_JSON,
     DEFAULT_MCP_TIMEOUT_SECONDS,
     HTTPX_AVAILABLE,
+    PSUTIL_AVAILABLE,
+    JINJA2_AVAILABLE,
     _NullContext,
 )
 
@@ -154,6 +163,8 @@ from aio.config.deps import (
     trace as _trace_mod,
     redis as _redis_mod,
     psycopg2 as _psycopg2_mod,
+    psutil as _psutil_mod,
+    jinja2 as _jinja2_mod,
 )
 
 # Assign to module-level names so ``patch("aio_framework.X")`` resolves.
@@ -169,6 +180,8 @@ docker = _docker_mod
 trace = _trace_mod
 redis = _redis_mod
 psycopg2 = _psycopg2_mod
+psutil = _psutil_mod
+jinja2 = _jinja2_mod
 
 
 def run_aio(raw_input: str, session_id: str | None = None, config: AIOConfig | None = None) -> AIOState:  # type: ignore[name-defined]

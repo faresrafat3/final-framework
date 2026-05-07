@@ -21,6 +21,7 @@
 | 10 | Multi-Agent Coordination | `MultiAgentCoordinator` | `MultiAgentConfig` | `coordination_plan`, `agent_outputs`, `consensus_score` | `node_multi_agent_*` | `route_multi_agent` | `test_multi_agent.py` | ✅ Complete |
 | 11 | Safety & Governance | `SafetyGovernance` | `SafetyGovernanceConfig` | `audit_trail`, `governance_result`, `compliance_violations` | `node_safety_governance_audit` | `route_safety_governance` | `test_safety_governance.py` | ✅ Complete |
 | 12 | Cognitive Immune System | `CognitiveImmuneSystem` | `CognitiveImmuneConfig` | `immune_status`, `anomaly_score`, `quarantined_ids`, `healing_actions`, `threat_patterns_detected` | `node_cognitive_immune_scan` | `route_post_finalize` | `test_cognitive_immune.py` | ✅ Complete |
+| 6 | Benchmark Suite | `BenchmarkRunner` | `BenchmarkConfig` | — | — | — | `test_benchmark_collector.py`, `test_benchmark_reporter.py`, `test_benchmark_regression.py`, `test_benchmark_suite.py` | ✅ Complete |
 
 ---
 
@@ -48,6 +49,10 @@
 | `tests/unit/test_governance_dashboard.py` | FastAPI routes, `AuditStore` ingestion, and `SafetyGovernance` integration | 4 |
 | `tests/unit/test_mcp_client.py` | MCP transport mocking, JSON-RPC formatting, discovery, graceful degradation, observability | 5 |
 | `tests/integration/test_mcp_integration.py` | Graph compilation with MCP enabled, tool routing, fallback to local tools | 5 |
+| `tests/unit/test_benchmark_collector.py` | Latency accumulation, count interception, memory graceful degradation | 6 |
+| `tests/unit/test_benchmark_reporter.py` | JSON round-trip, HTML scenario names, Jinja2 fallback | 6 |
+| `tests/unit/test_benchmark_regression.py` | Baseline comparison, threshold detection, report serialization | 6 |
+| `tests/integration/test_benchmark_suite.py` | Real graph execution, scenario coverage, result population | 6 |
 
 ---
 
@@ -139,9 +144,17 @@ langchain-anthropic: >=0.1.0 (optional)
 | `MCP_ENABLE` | `false` | Enable MCP client and dynamic tool discovery |
 | `MCP_SERVERS` | `[]` | JSON array of `MCPServerConfig` objects (e.g., `[{"name":"fs","transport":"stdio","command":"npx","args":["-y","@anthropic/mcp-server-filesystem"]}`]) |
 | `MCP_TIMEOUT_SECONDS` | `30` | Default timeout for MCP JSON-RPC requests |
+| `BENCHMARK_ITERATIONS` | `10` | Number of measured iterations per scenario |
+| `BENCHMARK_WARMUP_ITERATIONS` | `2` | Number of warmup iterations (not recorded) |
+| `BENCHMARK_SCENARIOS` | `echo,safety_block,failure_recovery,context_overflow,multi_agent` | Comma-separated scenario list |
+| `BENCHMARK_BASELINE_PATH` | — | Path to baseline JSON for regression detection |
+| `BENCHMARK_REGRESSION_THRESHOLD_PERCENT` | `10.0` | Percentage threshold for flagging regressions |
+| `BENCHMARK_OUTPUT_DIR` | `./benchmark_results` | Directory for JSON/HTML reports |
+| `BENCHMARK_ENABLE_MEMORY_PROFILING` | `true` | Enable RSS/tracemalloc memory sampling |
+| `BENCHMARK_ENABLE_HTML_REPORT` | `true` | Emit HTML report alongside JSON |
 
 All flags are env-driven and checked at config initialization time.
 
 ---
 
-*Last updated: Post-PR #10 — MCP Integration (Priority 5)*
+*Last updated: Post-PR #11 — Benchmark Suite (Priority 6)*

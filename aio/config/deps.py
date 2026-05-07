@@ -97,6 +97,20 @@ except Exception:  # pragma: no cover
     httpx = None  # type: ignore[misc]
     HTTPX_AVAILABLE = False
 
+try:
+    import psutil
+    PSUTIL_AVAILABLE = True
+except Exception:  # pragma: no cover
+    psutil = None  # type: ignore[misc]
+    PSUTIL_AVAILABLE = False
+
+try:
+    import jinja2
+    JINJA2_AVAILABLE = True
+except Exception:  # pragma: no cover
+    jinja2 = None  # type: ignore[misc]
+    JINJA2_AVAILABLE = False
+
 
 # ---------------------------------------------------------------------------
 # Constants & Configuration

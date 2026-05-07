@@ -1,5 +1,36 @@
 # Changelog
 
+## [Priority 6.0.0] — 2024-05-08
+
+### Added
+- **Performance Benchmarking Suite — Priority 6**
+  - `aio/benchmark/` subpackage with collector, runner, reporters, regression detector, and CLI
+  - `BenchmarkCollector` wraps `ObservabilityLayer` to intercept per-node latency and count data without modifying layer code
+  - Memory profiling: `psutil.Process().memory_info().rss` when available; falls back to `tracemalloc` (stdlib); skips silently when neither is available
+  - `BenchmarkRunner` compiles the graph once per session and executes built-in scenarios: `echo`, `safety_block`, `failure_recovery`, `context_overflow`, `multi_agent`
+  - Fresh `make_initial_state()` per iteration to prevent state pollution across runs
+  - `JSONReporter` serializes results with metadata (timestamp, Python version, git commit)
+  - `HTMLReporter` uses inline Jinja2 template with SVG bar charts when Jinja2 is available; otherwise emits minimal plain HTML
+  - `RegressionDetector` compares current run against a baseline JSON, flagging regressions beyond a configurable threshold for p50/p99 latency, e2e time, and throughput
+  - `aio/benchmark/cli.py` provides an `argparse` entry point (`python -m aio.benchmark.cli`) suitable for CI — exits with code `1` on regression
+  - `BenchmarkConfig` Pydantic v2 model with `BENCHMARK_*` env-driven defaults
+  - Graph builder backward-compatible change: optional `observability_layer` parameter so benchmarks can inject a collector-wrapped layer
+- **Testing**
+  - `tests/unit/test_benchmark_collector.py` — mocked observability, latency accumulation, memory graceful degradation
+  - `tests/unit/test_benchmark_reporter.py` — JSON round-trip, HTML scenario names, Jinja2 fallback
+  - `tests/unit/test_benchmark_regression.py` — baseline/current construction, threshold detection, report serialization
+  - `tests/integration/test_benchmark_suite.py` — runner against real graph with 1 iteration + 0 warmup
+
+### Metrics Targets
+| Metric | Target | Status |
+|--------|--------|--------|
+| Benchmark suite unit test coverage | > 90% | All collector, reporter, and regression paths tested |
+| Integration smoke test (real graph) | 100% | Runner populates results without exceptions |
+| Regression detection accuracy | 100% | Threshold logic verified for latency and throughput |
+| Graceful degradation without psutil | 100% | Falls back to tracemalloc or skips silently |
+
+---
+
 ## [Priority 5.0.0] — 2024-05-07
 
 ### Added
