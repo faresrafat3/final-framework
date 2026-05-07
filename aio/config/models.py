@@ -350,6 +350,22 @@ def _parse_mcp_servers_json(raw: str) -> List[MCPServerConfig]:
     return []
 
 
+class StreamingConfig(BaseModel):
+    """Real-time cognitive streaming configuration.
+
+    Attributes:
+        enable: Master switch for the streaming subsystem.
+        transport: Transport backend — ``memory``, ``sse``, or ``websocket``.
+        event_persistence: ``false`` or ``redis`` for optional event replay.
+        max_buffer_events: Maximum events retained in the in-memory buffer.
+    """
+
+    enable: bool = Field(default_factory=lambda: os.getenv("ENABLE_STREAMING", "false").lower() == "true")
+    transport: str = Field(default_factory=lambda: os.getenv("STREAMING_TRANSPORT", "memory"))
+    event_persistence: str = Field(default_factory=lambda: os.getenv("STREAMING_EVENT_PERSISTENCE", "false"))
+    max_buffer_events: int = Field(default_factory=lambda: int(os.getenv("STREAMING_MAX_BUFFER_EVENTS", "1000")))
+
+
 class BenchmarkConfig(BaseModel):
     """Benchmark-suite configuration.
 
@@ -421,4 +437,5 @@ class AIOConfig(BaseModel):
     cognitive_immune: CognitiveImmuneConfig = Field(default_factory=CognitiveImmuneConfig)
     governance_dashboard: GovernanceDashboardConfig = Field(default_factory=GovernanceDashboardConfig)
     mcp: MCPConfig = Field(default_factory=MCPConfig)
+    streaming: StreamingConfig = Field(default_factory=StreamingConfig)
     enable_priority_3: bool = Field(default_factory=lambda: os.getenv("ENABLE_PRIORITY_3", "true").lower() == "true")

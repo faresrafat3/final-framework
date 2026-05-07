@@ -28,6 +28,7 @@ def _cmd_run(argv: Sequence[str] | None = None) -> int:
     parser.add_argument("query", nargs="?", default="echo hello world", help="Input query string")
     parser.add_argument("--session-id", default=None, help="Optional session identifier")
     parser.add_argument("--config-json", default=None, help="Optional JSON string to override AIOConfig")
+    parser.add_argument("--stream", action="store_true", help="Print NDJSON streaming events to stdout")
     args = parser.parse_args(argv)
 
     from .config.models import AIOConfig
@@ -39,7 +40,13 @@ def _cmd_run(argv: Sequence[str] | None = None) -> int:
         import json as _json
         config = AIOConfig(**_json.loads(args.config_json))
 
-    app = build_aio_graph(config)
+    streaming_manager = None
+    if args.stream:
+        from .streaming import StreamingManager, NDJSONTransport
+        streaming_manager = StreamingManager()
+        streaming_manager.subscribe(NDJSONTransport())
+
+    app = build_aio_graph(config, streaming_manager=streaming_manager)
     state = make_initial_state(args.query, args.session_id)
     result = app.invoke(state)
     # Strip internal metrics for readability
