@@ -37,18 +37,23 @@ A production-grade, modular agent architecture built as a **Cognitive Immune Sys
 ## Quick Start
 
 ```bash
-# 1. Install dependencies
-pip install -r requirements.txt
+# 1. Install the package (with all optional extras)
+pip install aio-framework[all]
+
+# Or install in editable mode for development
+pip install -e ".[dev]"
 
 # 2. Copy environment template and configure
  cp .env.example .env
 # Edit .env with your keys
 
 # 3. Run a single task
+aio run "echo hello world"
+# Backward-compatible direct script execution still works:
 python aio_framework.py "echo hello world"
 
 # 4. Run tests
-pytest tests/ -v --cov=aio_framework
+pytest tests/ -v --cov=aio
 
 # 5. Start observability stack
 docker-compose up -d
@@ -58,11 +63,13 @@ docker-compose up -d
 
 ```
 .
-├── aio_framework.py              # Core framework: all 13 layers + StateGraph (~2500 lines)
+├── aio_framework.py              # Backward-compatible re-export shim
+├── pyproject.toml                # Modern Python packaging (PEP 621)
+├── Dockerfile                    # Multi-stage production image
 ├── project_blueprint.md          # Full architectural specification
 ├── docker-compose.yml            # Observability stack (OTel, Prometheus, Grafana, Jaeger)
 ├── .env.example                  # Environment variable template
-├── requirements.txt              # Python dependencies
+├── requirements.txt              # Deprecated; kept for backward compatibility pointer
 ├── prompts/
 │   ├── system/base_system.txt    # AIO identity and operational constraints
 │   ├── cognitive/recon.txt       # Reconnaissance / BAPO initialization
@@ -137,12 +144,36 @@ pytest tests/integration/ -v
 pytest tests/failure_injection/ -v
 
 # All tests with coverage
-pytest tests/ -v --cov=aio_framework --cov-report=term-missing
+pytest tests/ -v --cov=aio --cov-report=term-missing
 
 # Smoke tests
 python -c "from aio_framework import build_aio_graph, AIOConfig; build_aio_graph(AIOConfig())"
 ENABLE_PRIORITY_3=false python -c "from aio_framework import build_aio_graph, AIOConfig; build_aio_graph(AIOConfig())"
 MCP_ENABLE=false python -c "from aio_framework import build_aio_graph, AIOConfig; build_aio_graph(AIOConfig())"
+```
+
+## CLI Usage
+
+The `aio` command provides a unified interface:
+
+```bash
+# Run a single query
+aio run "echo hello world"
+
+# Run the benchmark suite
+aio benchmark --iterations 5 --scenarios echo,safety_block
+
+# Start the governance dashboard
+aio dashboard --port 8000
+```
+
+## Docker
+
+Build and run the standalone production image:
+
+```bash
+docker build -t aio-framework:latest .
+docker run -e OPENAI_API_KEY=$OPENAI_API_KEY aio-framework:latest run "echo hello world"
 ```
 
 ## Constitutional Mandates
