@@ -82,6 +82,13 @@ Auto-generated reference for the public API surface of the AIO Framework.
 
 ::: aio.layers.mcp_client
 
+## Streaming
+
+::: aio.streaming.events
+::: aio.streaming.manager
+::: aio.streaming.transports
+::: aio.streaming.store
+
 ## Dashboard
 
 ::: aio.dashboard.store

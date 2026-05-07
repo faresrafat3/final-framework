@@ -63,6 +63,9 @@ benchmark = [
     "psutil>=5.9.0",
     "jinja2>=3.0.0",
 ]
+streaming = [
+    "websockets>=12.0",
+]
 docs = [
     "mkdocs-material>=9.5",
     "mkdocstrings[python]>=0.24",
@@ -84,6 +87,7 @@ all = [
     "redis>=5.0.0",
     "psycopg2-binary>=2.9.0",
     "psutil>=5.9.0",
+    "websockets>=12.0",
 ]
 
 [project.scripts]

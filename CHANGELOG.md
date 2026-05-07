@@ -1,5 +1,41 @@
 # Changelog
 
+## [8.0.0] — 2024-05-10
+
+Merged via PR #15.
+
+### Added
+- **Real-Time Cognitive Streaming & Event Layer — Priority 8**
+  - `aio/streaming/` package with `StreamEvent`, `StreamingManager`, `SSETransport`, `WebSocketTransport`, `EventStore`, and `MemoryTransport`
+  - Fire-and-forget event emission integrated into every LangGraph node wrapper via `_wrap_node`
+  - `build_aio_graph()` accepts optional `streaming_manager` parameter; 100% backward compatible when omitted
+  - CLI `--stream` flag prints NDJSON events to stdout (`aio run "query" --stream`)
+  - Dashboard WebSocket endpoint `/ws/live` serves buffered events when dashboard and streaming are both enabled
+  - `StreamingConfig` Pydantic model with env-driven defaults: `ENABLE_STREAMING`, `STREAMING_TRANSPORT`, `STREAMING_EVENT_PERSISTENCE`, `STREAMING_MAX_BUFFER_EVENTS`
+  - Optional `streaming` extra in `pyproject.toml` (`websockets>=12.0`)
+  - Comprehensive test suite:
+    - `tests/unit/test_streaming_manager.py`
+    - `tests/unit/test_streaming_transports.py`
+    - `tests/unit/test_streaming_store.py`
+    - `tests/integration/test_streaming_graph.py`
+    - `tests/unit/test_cli_streaming.py`
+  - Documentation: `docs/streaming.md`, updated `configuration.md`, `api-reference.md`, `index.md`, `mkdocs.yml`
+
+### Changed
+- `AIOConfig` now includes `streaming: StreamingConfig`
+- `aio/__init__.py` exports all streaming symbols and `StreamingConfig`
+
+### Metrics Targets
+| Metric | Target | Status |
+|--------|--------|--------|
+| Streaming event coverage per layer | 100% | All 13 layers emit START/END events |
+| Backward compatibility (no streaming) | 100% | `build_aio_graph(AIOConfig())` unchanged |
+| CLI `--stream` NDJSON output | 100% | Verified in unit tests |
+| Dashboard WebSocket live feed | 100% | Endpoint registered when both features enabled |
+| Test coverage for streaming package | > 90% | Manager, transports, store, graph, CLI |
+
+---
+
 ## [7.0.0] — 2024-05-09
 
 Merged via PR #14.

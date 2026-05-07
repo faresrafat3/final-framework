@@ -81,6 +81,7 @@ flowchart TB
 - [Quick Start](quick-start.md) — install, configure, and run your first query
 - [Configuration](configuration.md) — `AIOConfig`, environment variables, and JSON overrides
 - [Architecture](architecture/13-layers.md) — deep dive into the 13-layer cognitive stack
+- [Streaming](streaming.md) — real-time cognitive event streaming
 - [API Reference](api-reference.md) — auto-generated docs for every public module
 
 ## Key Components

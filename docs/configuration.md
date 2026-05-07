@@ -31,6 +31,10 @@ config = AIOConfig()
 | `MCP_ENABLE` | `false` | Enable MCP client and dynamic tool discovery |
 | `MCP_SERVERS` | `[]` | JSON array of MCP server configs |
 | `MCP_TIMEOUT_SECONDS` | `30` | Timeout for MCP JSON-RPC requests |
+| `ENABLE_STREAMING` | `false` | Master switch for real-time cognitive streaming |
+| `STREAMING_TRANSPORT` | `memory` | Transport backend: `memory`, `sse`, or `websocket` |
+| `STREAMING_EVENT_PERSISTENCE` | `false` | Optional event persistence: `false` or `redis` |
+| `STREAMING_MAX_BUFFER_EVENTS` | `1000` | Max events retained in the in-memory buffer |
 
 ## JSON Override Example
 
@@ -71,5 +75,6 @@ Each layer has its own Pydantic model under `aio.config.models`:
 - `CognitiveImmuneConfig` — anomaly thresholds, learning settings
 - `MCPConfig` — servers, timeouts, auto-discover
 - `BenchmarkConfig` — iterations, scenarios, regression threshold
+- `StreamingConfig` — enable, transport, persistence, buffer size
 
 See the [API Reference](api-reference.md) for full field documentation.

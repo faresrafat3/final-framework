@@ -38,6 +38,7 @@ from .config.models import (
     MCPConfig,
     MCPServerConfig,
     BenchmarkConfig,
+    StreamingConfig,
 )
 from .config.deps import (
     OTEL_AVAILABLE,
@@ -113,6 +114,25 @@ try:
     from .dashboard.app import create_dashboard_app
 except Exception:  # pragma: no cover
     create_dashboard_app = None  # type: ignore[misc,assignment]
+
+try:
+    from .streaming import (
+        StreamEvent,
+        StreamingManager,
+        MemoryTransport,
+        SSETransport,
+        WebSocketTransport,
+        NDJSONTransport,
+        EventStore,
+    )
+except Exception:  # pragma: no cover
+    StreamEvent = None  # type: ignore[misc,assignment]
+    StreamingManager = None  # type: ignore[misc,assignment]
+    MemoryTransport = None  # type: ignore[misc,assignment]
+    SSETransport = None  # type: ignore[misc,assignment]
+    WebSocketTransport = None  # type: ignore[misc,assignment]
+    NDJSONTransport = None  # type: ignore[misc,assignment]
+    EventStore = None  # type: ignore[misc,assignment]
 
 try:
     from .benchmark import (
@@ -209,6 +229,7 @@ __all__ = [
     "GovernanceDashboardConfig",
     "MCPConfig",
     "MCPServerConfig",
+    "StreamingConfig",
     "OTEL_AVAILABLE",
     "PROMETHEUS_AVAILABLE",
     "DOCKER_AVAILABLE",
@@ -285,6 +306,13 @@ __all__ = [
     "HTMLReporter",
     "RegressionDetector",
     "benchmark_main",
+    "StreamEvent",
+    "StreamingManager",
+    "MemoryTransport",
+    "SSETransport",
+    "WebSocketTransport",
+    "NDJSONTransport",
+    "EventStore",
     "AIOState",
     "make_initial_state",
     "build_aio_graph",

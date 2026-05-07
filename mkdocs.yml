@@ -11,6 +11,7 @@ nav:
   - Home: index.md
   - Quick Start: quick-start.md
   - Configuration: configuration.md
+  - Streaming: streaming.md
   - Architecture:
       - 13-Layer Stack: architecture/13-layers.md
       - Graph Routing: architecture/graph-routing.md

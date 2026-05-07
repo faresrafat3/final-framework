@@ -80,10 +80,61 @@ from .routing import (
 )
 
 
+def _wrap_node(
+    node_name: str,
+    func: Any,
+    streaming_manager: Any,
+) -> Any:
+    """Wrap a node callable so it emits START/END streaming events."""
+    if streaming_manager is None:
+        return func
+
+    from ..streaming.manager import StreamingManager
+
+    def wrapper(state: AIOState) -> AIOState:
+        event = StreamingManager.make_event(
+            layer=node_name,
+            event_type="START",
+            payload={},
+            trace_id=state.get("trace_id"),
+            turn=state.get("turn"),
+            node_name=node_name,
+        )
+        streaming_manager.emit(event)
+        try:
+            result = func(state)
+        except Exception as exc:
+            streaming_manager.emit(
+                StreamingManager.make_event(
+                    layer=node_name,
+                    event_type="DATA",
+                    payload={"error": str(exc)},
+                    trace_id=state.get("trace_id"),
+                    turn=state.get("turn"),
+                    node_name=node_name,
+                )
+            )
+            raise
+        streaming_manager.emit(
+            StreamingManager.make_event(
+                layer=node_name,
+                event_type="END",
+                payload={},
+                trace_id=state.get("trace_id"),
+                turn=state.get("turn"),
+                node_name=node_name,
+            )
+        )
+        return result
+
+    return wrapper
+
+
 def build_aio_graph(
     config: Optional[AIOConfig] = None,
     store: Optional[Any] = None,
     observability_layer: Optional[ObservabilityLayer] = None,
+    streaming_manager: Optional[Any] = None,
 ) -> Any:
     """Build and compile the full AIO LangGraph ``StateGraph``.
 
@@ -98,9 +149,12 @@ def build_aio_graph(
             Layer 11 (SafetyGovernance) to persist audit decisions.
         observability_layer: Optional :class:`aio.layers.observability.ObservabilityLayer`.
             When omitted a default instance is created from ``config.observability``.
+        streaming_manager: Optional :class:`aio.streaming.StreamingManager`.
+            When provided, every node wrapper emits ``START``/``END`` events
+            fire-and-forget during graph execution.
 
     Returns:
-        A compiled LangGraph object (`` CompiledStateGraph``) exposing
+        A compiled LangGraph object (``CompiledStateGraph``) exposing
         ``invoke()``, ``stream()``, etc.
 
     Raises:
@@ -131,55 +185,59 @@ def build_aio_graph(
 
     graph = StateGraph(AIOState)
 
+    # Helper to optionally wrap with streaming emission
+    def _add(name: str, fn: Any) -> None:
+        graph.add_node(name, _wrap_node(name, fn, streaming_manager))
+
     # Layer 1
-    graph.add_node("context_ingest", lambda s: node_context_ingest(s, ctx_mgr))
-    graph.add_node("context_sculpt", lambda s: node_context_sculpt(s, ctx_mgr))
+    _add("context_ingest", lambda s: node_context_ingest(s, ctx_mgr))
+    _add("context_sculpt", lambda s: node_context_sculpt(s, ctx_mgr))
 
     # Layer 2
-    graph.add_node("memory_retrieve", lambda s: node_memory_retrieve(s, mem))
-    graph.add_node("memory_encode", lambda s: node_memory_encode(s, mem))
-    graph.add_node("memory_verify", lambda s: node_memory_verify(s, mem))
-    graph.add_node("memory_store", lambda s: node_memory_store(s, mem))
-    graph.add_node("memory_consolidate", lambda s: node_memory_consolidate(s, mem))
+    _add("memory_retrieve", lambda s: node_memory_retrieve(s, mem))
+    _add("memory_encode", lambda s: node_memory_encode(s, mem))
+    _add("memory_verify", lambda s: node_memory_verify(s, mem))
+    _add("memory_store", lambda s: node_memory_store(s, mem))
+    _add("memory_consolidate", lambda s: node_memory_consolidate(s, mem))
 
     # Layer 4
-    graph.add_node("curiosity_intrinsic", lambda s: node_curiosity_intrinsic(s, curiosity))
-    graph.add_node("curiosity_seek", lambda s: node_curiosity_seek(s, curiosity))
-    graph.add_node("curiosity_serendipity", lambda s: node_curiosity_serendipity(s, curiosity))
-    graph.add_node("curiosity_counterfactual", lambda s: node_curiosity_counterfactual(s, curiosity))
-    graph.add_node("curiosity_umwelt", lambda s: node_curiosity_umwelt(s, curiosity))
+    _add("curiosity_intrinsic", lambda s: node_curiosity_intrinsic(s, curiosity))
+    _add("curiosity_seek", lambda s: node_curiosity_seek(s, curiosity))
+    _add("curiosity_serendipity", lambda s: node_curiosity_serendipity(s, curiosity))
+    _add("curiosity_counterfactual", lambda s: node_curiosity_counterfactual(s, curiosity))
+    _add("curiosity_umwelt", lambda s: node_curiosity_umwelt(s, curiosity))
 
     # Planning stub (generates base plan)
-    graph.add_node("plan_generate", lambda s: node_plan_generate(s, planning))
+    _add("plan_generate", lambda s: node_plan_generate(s, planning))
 
     # Layer 3
-    graph.add_node("maci_select", lambda s: node_maci_select(s, planning))
-    graph.add_node("hiplan", lambda s: node_hiplan(s, planning))
-    graph.add_node("flare", lambda s: node_flare(s, planning))
-    graph.add_node("lwm_augment", lambda s: node_lwm_augment(s, planning))
-    graph.add_node("ppa_analyze", lambda s: node_ppa_analyze(s, planning))
-    graph.add_node("spiral_mcts", lambda s: node_spiral_mcts(s, planning))
-    graph.add_node("mars_reflect", lambda s: node_mars_reflect(s, planning))
-    graph.add_node("vmao_decompose", lambda s: node_vmao_decompose(s, planning))
+    _add("maci_select", lambda s: node_maci_select(s, planning))
+    _add("hiplan", lambda s: node_hiplan(s, planning))
+    _add("flare", lambda s: node_flare(s, planning))
+    _add("lwm_augment", lambda s: node_lwm_augment(s, planning))
+    _add("ppa_analyze", lambda s: node_ppa_analyze(s, planning))
+    _add("spiral_mcts", lambda s: node_spiral_mcts(s, planning))
+    _add("mars_reflect", lambda s: node_mars_reflect(s, planning))
+    _add("vmao_decompose", lambda s: node_vmao_decompose(s, planning))
 
     # Layer 5
-    graph.add_node("verify_plan", lambda s: node_verify_plan(s, verifier))
-    graph.add_node("debug_and_replan", lambda s: node_debug_and_replan(s, verifier))
+    _add("verify_plan", lambda s: node_verify_plan(s, verifier))
+    _add("debug_and_replan", lambda s: node_debug_and_replan(s, verifier))
 
     # Layer 6
-    graph.add_node("gstep_evaluate", lambda s: node_gstep_evaluate(s, toolopt))
-    graph.add_node("hdpo_optimize", lambda s: node_hdpo_optimize(s, toolopt))
-    graph.add_node("jtpro_optimize", lambda s: node_jtpro_optimize(s, toolopt))
-    graph.add_node("execute_action", lambda s: node_execute_action(s, toolgate))
-    graph.add_node("analytics_record", lambda s: node_analytics_record(s, toolopt))
+    _add("gstep_evaluate", lambda s: node_gstep_evaluate(s, toolopt))
+    _add("hdpo_optimize", lambda s: node_hdpo_optimize(s, toolopt))
+    _add("jtpro_optimize", lambda s: node_jtpro_optimize(s, toolopt))
+    _add("execute_action", lambda s: node_execute_action(s, toolgate))
+    _add("analytics_record", lambda s: node_analytics_record(s, toolopt))
 
     # Layer 8
-    graph.add_node("failure_assess", lambda s: node_failure_assess(s, recovery))
-    graph.add_node("retry_with_backoff", lambda s: node_retry_with_backoff(s, recovery))
-    graph.add_node("escalate", lambda s: node_escalate(s, recovery))
-    graph.add_node("graceful_degrade", lambda s: node_graceful_degrade(s, recovery))
-    graph.add_node("neuroshield", lambda s: node_neuroshield(s, recovery))
-    graph.add_node("failure_learn", lambda s: node_failure_learn(s, recovery))
+    _add("failure_assess", lambda s: node_failure_assess(s, recovery))
+    _add("retry_with_backoff", lambda s: node_retry_with_backoff(s, recovery))
+    _add("escalate", lambda s: node_escalate(s, recovery))
+    _add("graceful_degrade", lambda s: node_graceful_degrade(s, recovery))
+    _add("neuroshield", lambda s: node_neuroshield(s, recovery))
+    _add("failure_learn", lambda s: node_failure_learn(s, recovery))
 
     # Layer 9-12 nodes (added unconditionally; routing decides if they run)
     self_evol = SelfEvolutionLayer(cfg.self_evolution, obs)
@@ -187,16 +245,16 @@ def build_aio_graph(
     governance = SafetyGovernance(cfg.safety_governance, obs, store=store)
     immune = CognitiveImmuneSystem(cfg.cognitive_immune, obs)
 
-    graph.add_node("self_evolution_analyze", lambda s: node_self_evolution_analyze(s, self_evol))
-    graph.add_node("multi_agent_decompose", lambda s: node_multi_agent_decompose(s, multi_agent))
-    graph.add_node("multi_agent_dispatch", lambda s: node_multi_agent_dispatch(s, multi_agent))
-    graph.add_node("multi_agent_aggregate", lambda s: node_multi_agent_aggregate(s, multi_agent))
-    graph.add_node("multi_agent_synthesize", lambda s: node_multi_agent_synthesize(s, multi_agent))
-    graph.add_node("safety_governance_audit", lambda s: node_safety_governance_audit(s, governance))
-    graph.add_node("cognitive_immune_scan", lambda s: node_cognitive_immune_scan(s, immune))
+    _add("self_evolution_analyze", lambda s: node_self_evolution_analyze(s, self_evol))
+    _add("multi_agent_decompose", lambda s: node_multi_agent_decompose(s, multi_agent))
+    _add("multi_agent_dispatch", lambda s: node_multi_agent_dispatch(s, multi_agent))
+    _add("multi_agent_aggregate", lambda s: node_multi_agent_aggregate(s, multi_agent))
+    _add("multi_agent_synthesize", lambda s: node_multi_agent_synthesize(s, multi_agent))
+    _add("safety_governance_audit", lambda s: node_safety_governance_audit(s, governance))
+    _add("cognitive_immune_scan", lambda s: node_cognitive_immune_scan(s, immune))
 
     # Finalize
-    graph.add_node("finalize_output", node_finalize_output)
+    _add("finalize_output", node_finalize_output)
 
     # Entry point
     graph.set_entry_point("context_ingest")
