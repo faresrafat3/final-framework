@@ -23,6 +23,7 @@
 | 12 | Cognitive Immune System | `CognitiveImmuneSystem` | `CognitiveImmuneConfig` | `immune_status`, `anomaly_score`, `quarantined_ids`, `healing_actions`, `threat_patterns_detected` | `node_cognitive_immune_scan` | `route_post_finalize` | `test_cognitive_immune.py` | ✅ Complete |
 | 6 | Benchmark Suite | `BenchmarkRunner` | `BenchmarkConfig` | — | — | — | `test_benchmark_collector.py`, `test_benchmark_reporter.py`, `test_benchmark_regression.py`, `test_benchmark_suite.py` | ✅ Complete |
 | — | Packaging & Distribution | — | — | — | — | — | CI / smoke tests | ✅ Complete |
+| — | Streaming & Event Layer | `StreamingManager` | `StreamingConfig` | — | `_wrap_node` | — | `test_streaming_manager.py`, `test_streaming_transports.py`, `test_streaming_store.py`, `test_streaming_graph.py`, `test_cli_streaming.py` | ✅ Complete |
 
 ---
 
@@ -54,6 +55,11 @@
 | `tests/unit/test_benchmark_reporter.py` | JSON round-trip, HTML scenario names, Jinja2 fallback | 6 |
 | `tests/unit/test_benchmark_regression.py` | Baseline comparison, threshold detection, report serialization | 6 |
 | `tests/integration/test_benchmark_suite.py` | Real graph execution, scenario coverage, result population | 6 |
+| `tests/unit/test_streaming_manager.py` | Subscribe, emit, buffer, unsubscribe, exception isolation, event factory | 8 |
+| `tests/unit/test_streaming_transports.py` | MemoryTransport, SSETransport, WebSocketTransport, NDJSONTransport | 8 |
+| `tests/unit/test_streaming_store.py` | EventStore memory backend, Redis fallback, replay with trace_id filter | 8 |
+| `tests/integration/test_streaming_graph.py` | Graph compilation with/without streaming_manager, START/END event coverage | 8 |
+| `tests/unit/test_cli_streaming.py` | CLI `--stream` NDJSON output, `--no-stream` single JSON output | 8 |
 
 ---
 
@@ -70,13 +76,13 @@
 9. **MCP server sandboxing is the operator's responsibility**: MCP tools run in the MCP server's process; external sandboxing (e.g., Docker, firejail) should be configured by the operator.
 10. **`requirements.txt` is deprecated**; development installs should use `pip install -e ".[dev]"`.
 11. **Docker multi-arch builds** (`linux/amd64`, `linux/arm64`) require Docker Buildx; local builds default to host architecture.
-12. **CLI commands** (`aio run`, `aio benchmark`, `aio dashboard`) do not yet have dedicated unit tests; they are validated via CI smoke tests and manual invocation.
+12. ~~CLI commands do not yet have dedicated unit tests~~ ✅ Done — `tests/unit/test_cli_streaming.py` covers NDJSON streaming output.
 
 ---
 
 ## 4. In-Flight Work
 
-> Priority 7 is complete.
+> Priority 8 is complete.
 
 ---
 
@@ -92,6 +98,7 @@
 8. ~~MCP integration~~ ✅ Done — `MCPClient` with stdio/SSE transports, JSON-RPC 2.0, dynamic tool discovery, ToolGate delegation behind `MCP_ENABLE` flag.
 9. ~~Benchmark Suite~~ ✅ Done — `aio/benchmark/` subpackage with collector, runner, reporters, regression detector, and CLI.
 10. ~~Packaging & Distribution~~ ✅ Done — `pyproject.toml`, CLI, Dockerfile, CI/CD workflows.
+11. ~~Real-Time Cognitive Streaming~~ ✅ Done — `aio/streaming/` package with manager, transports, store, graph integration, CLI `--stream`, dashboard `/ws/live`.
 
 > Next priorities to be determined.
 
@@ -122,6 +129,7 @@ requires-python = ">=3.10"
 - `memory-redis` — `redis>=5.0.0`
 - `memory-postgres` — `psycopg2-binary>=2.9.0`
 - `benchmark` — `psutil>=5.9.0`, `jinja2>=3.0.0`
+- `streaming` — `websockets>=12.0`
 - `dev` — `aio-framework[all]`, `pytest>=7.4.0`, `pytest-asyncio>=0.21.0`, `pytest-cov>=4.1.0`
 - `all` — union of all runtime extras
 
@@ -161,9 +169,13 @@ requires-python = ">=3.10"
 | `BENCHMARK_OUTPUT_DIR` | `./benchmark_results` | Directory for JSON/HTML reports |
 | `BENCHMARK_ENABLE_MEMORY_PROFILING` | `true` | Enable RSS/tracemalloc memory sampling |
 | `BENCHMARK_ENABLE_HTML_REPORT` | `true` | Emit HTML report alongside JSON |
+| `ENABLE_STREAMING` | `false` | Master switch for the real-time cognitive streaming subsystem |
+| `STREAMING_TRANSPORT` | `memory` | Transport backend — `memory`, `sse`, or `websocket` |
+| `STREAMING_EVENT_PERSISTENCE` | `false` | Optional event persistence — `false` or `redis` for replay |
+| `STREAMING_MAX_BUFFER_EVENTS` | `1000` | Maximum events retained in the in-memory ring buffer |
 
 All flags are env-driven and checked at config initialization time.
 
 ---
 
-*Last updated: Post-PR #14 — Packaging & Distribution (Priority 7)*
+*Last updated: Post-PR #17 — Real-Time Cognitive Streaming & Event Layer (Priority 8)*

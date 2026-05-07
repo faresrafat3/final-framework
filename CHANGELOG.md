@@ -1,12 +1,12 @@
 # Changelog
 
-## [8.0.0] — 2024-05-10
+## [8.0.0] — 2026-05-07
 
-Merged via PR #15.
+Merged via PR #17.
 
 ### Added
 - **Real-Time Cognitive Streaming & Event Layer — Priority 8**
-  - `aio/streaming/` package with `StreamEvent`, `StreamingManager`, `SSETransport`, `WebSocketTransport`, `EventStore`, and `MemoryTransport`
+  - `aio/streaming/` package with `StreamEvent`, `StreamingManager`, `SSETransport`, `WebSocketTransport`, `EventStore`, `MemoryTransport`, and `NDJSONTransport`
   - Fire-and-forget event emission integrated into every LangGraph node wrapper via `_wrap_node`
   - `build_aio_graph()` accepts optional `streaming_manager` parameter; 100% backward compatible when omitted
   - CLI `--stream` flag prints NDJSON events to stdout (`aio run "query" --stream`)
