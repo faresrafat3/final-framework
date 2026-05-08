@@ -62,6 +62,7 @@
 | Priority 7 | Packaging & Distribution | Complete | CI + Smoke |
 | Priority 8 | Real-Time Cognitive Streaming & Event Layer | Complete | Unit + Integration |
 | Priority 9 | Human-in-the-Loop & Feedback Loop | Complete | Unit + Integration |
+| Priority 10 | Memory Upgrade (4-Day: Real Embeddings, Persistent Storage, Lifecycle, Tool Exposure) | Day 1 Complete | Unit + Integration |
 
 ---
 
@@ -114,7 +115,9 @@
 | `tests/unit/test_hitl.py` | HITL gate logic, feedback ingestion, escalation thresholds, replay | — |
 | `tests/integration/test_hitl_graph.py` | Graph routing with HITL enabled | — |
 | `aio/dashboard/templates/hitl.html` | Dashboard HITL queue UI | — |
-| `aio/memory/embeddings.py` | Embedding engines: `BaseEmbeddingEngine`, `RealEmbeddingEngine`, `PseudoEmbeddingEngine`, `EmbeddingEngineFactory` | ~100 |
+| `aio/memory/` | Memory subpackage: embedding engines and future storage/lifecycle modules | — |
+| `aio/memory/embeddings.py` | `BaseEmbeddingEngine`, `RealEmbeddingEngine`, `PseudoEmbeddingEngine`, `EmbeddingEngineFactory` | ~120 |
+| `tests/unit/test_memory_embeddings.py` | Unit tests for embedding engines (determinism, normalization, factory, dimensions) | — |
 
 ---
 
@@ -216,6 +219,7 @@ If context is lost between sessions:
 | Tune safety/governance | `aio/layers/safety_governance.py` + `prompts/meta/governance.txt` |
 | Tune immune system | `aio/layers/cognitive_immune.py` + `aio/layers/immune_learning.py` + `prompts/meta/immune.txt` |
 | Change memory backend | `aio/layers/memory_backends.py` + `MEMORY_BACKEND_TYPE` env var |
+| Change embedding engine | `aio/memory/embeddings.py` + `ENABLE_REAL_EMBEDDINGS` env var |
 
 ---
 
@@ -237,4 +241,4 @@ If context is lost between sessions:
 
 ---
 
-*Last updated: Post-PR #21 — Human-in-the-Loop & Feedback Loop Integration (Priority 9)*
+*Last updated: Post-PR #25 — Day 1 Memory Upgrade (Priority 10)*

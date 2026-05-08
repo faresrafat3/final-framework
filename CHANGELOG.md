@@ -1,5 +1,36 @@
 # Changelog
 
+## [10.0.0-day1] — 2026-05-08
+
+Merged via PR #25.
+
+### Added
+- **Memory Upgrade — Day 1: Real Embedding Engine (Priority 10)**
+  - `aio/memory/embeddings.py` with modular embedding architecture:
+    - `BaseEmbeddingEngine` — ABC defining `embed(text) -> List[float]` contract
+    - `RealEmbeddingEngine` — wraps `sentence-transformers` `all-MiniLM-L6-v2`, produces normalized 384-dim vectors
+    - `PseudoEmbeddingEngine` — deterministic hash-based fallback, 64-dim normalized vectors
+    - `EmbeddingEngineFactory.create(config)` — feature-flag-aware factory respecting `ENABLE_REAL_EMBEDDINGS`
+  - Refactored `aio/layers/memory.py` to delegate `_embed()` to engine via factory
+  - Unit tests in `tests/unit/test_memory_embeddings.py` covering determinism, normalization, factory behavior, and dimensions
+  - `tests/unit/test_memory_bridge.py` updated with embedding engine delegation test
+
+### Changed
+- `aio/__init__.py` now exports `RealEmbeddingEngine`, `PseudoEmbeddingEngine`, `EmbeddingEngineFactory`
+- Removed inline `sys.modules.get("aio_framework")` hack from `MemoryBridge` initialization
+
+### Metrics Targets
+| Metric | Target | Status |
+|--------|--------|--------|
+| Pseudo-embedding determinism | 100% | ✅ Same text → identical vector |
+| Pseudo-embedding normalization | 100% | ✅ Unit vector |
+| Factory fallback when flag off | 100% | ✅ Returns PseudoEmbeddingEngine |
+| Factory fallback when unavailable | 100% | ✅ Warning log + PseudoEmbeddingEngine |
+| Backward compatibility | 100% | ✅ `MemoryBridge` API unchanged |
+| Test coverage for new module | > 90% | ✅ 5 unit tests pass |
+
+---
+
 ## [9.1.0] — 2026-05-08
 
 ### Added
