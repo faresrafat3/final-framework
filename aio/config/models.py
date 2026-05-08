@@ -122,12 +122,18 @@ class CuriosityConfig(BaseModel):
         intrinsic_reward_weight: Weight applied to the novelty component of the reward.
         serendipity_window: Number of recent plans scanned for unexpected patterns.
         umwelt_constraints: Additional perceptual-boundary constraints beyond the defaults.
+        latent_dim: Dimensionality of the synthetic latent space for exploration.
+        latent_neighbors: Number of neighbor vectors to sample around each base vector.
+        latent_noise_sigma: Standard deviation of Gaussian noise for latent perturbation.
     """
 
     novelty_threshold: float = 0.3
     intrinsic_reward_weight: float = 0.5
     serendipity_window: int = 5
     umwelt_constraints: List[str] = Field(default_factory=list)
+    latent_dim: int = 8
+    latent_neighbors: int = 3
+    latent_noise_sigma: float = 0.1
 
 
 class VerifierConfig(BaseModel):
@@ -196,6 +202,7 @@ class FailureRecoveryConfig(BaseModel):
         jitter_factor: Random jitter fraction added to backoff.
         safety_mode: NeuroShield enforcement level (``strict``, ``permissive``).
         escalation_threshold: Consecutive failures that trigger escalation.
+        enable_semantic_classifier: Whether to use the upgraded SemanticClassifier in addition to regex NeuroShield.
     """
 
     max_retries: int = DEFAULT_MAX_RETRIES
@@ -204,6 +211,9 @@ class FailureRecoveryConfig(BaseModel):
     jitter_factor: float = 0.2
     safety_mode: str = DEFAULT_SAFETY_MODE
     escalation_threshold: int = 3
+    enable_semantic_classifier: bool = Field(
+        default_factory=lambda: os.getenv("ENABLE_SEMANTIC_CLASSIFIER", "false").lower() == "true"
+    )
 
 
 class NeuroSymbolicConfig(BaseModel):
@@ -240,12 +250,18 @@ class SelfEvolutionConfig(BaseModel):
         min_turns_before_analysis: Minimum number of turns before an analysis cycle runs.
         performance_window_size: Number of recent snapshots used for trend calculation.
         auto_apply_config_delta: Whether suggested config changes are applied automatically.
+        enable_agent_debug: Whether AgentDebug failure analysis and A/B testing runs.
+        agent_debug_auto_apply_winner: Whether the winning prompt variant is auto-applied.
     """
 
     enable: bool = Field(default_factory=lambda: os.getenv("SELF_EVOLUTION_ENABLE", "true").lower() == "true")
     min_turns_before_analysis: int = 1
     performance_window_size: int = 5
     auto_apply_config_delta: bool = False
+    enable_agent_debug: bool = Field(
+        default_factory=lambda: os.getenv("ENABLE_AGENT_DEBUG", "false").lower() == "true"
+    )
+    agent_debug_auto_apply_winner: bool = False
 
 
 class MultiAgentConfig(BaseModel):
@@ -445,6 +461,74 @@ class HitlConfig(BaseModel):
     feedback_replay_max_corrections: int = 5
 
 
+class SymbolicProverConfig(BaseModel):
+    """SymbolicProver configuration for Z3-backed plan verification.
+
+    Attributes:
+        enable: Master switch for the symbolic prover.
+        enable_z3: Whether to use the Z3 SMT solver when available.
+        max_plan_length: Upper bound on plan length for safety checks.
+        forbidden_patterns: List of forbidden substrings checked during safety verification.
+    """
+
+    enable: bool = Field(default_factory=lambda: os.getenv("SYMBOLIC_PROVER_ENABLE", "true").lower() == "true")
+    enable_z3: bool = Field(default_factory=lambda: os.getenv("SYMBOLIC_PROVER_ENABLE_Z3", "false").lower() == "true")
+    max_plan_length: int = 5000
+    forbidden_patterns: List[str] = Field(default_factory=lambda: ["rm -rf /", "drop table", "delete from"])
+
+
+class SemanticClassifierConfig(BaseModel):
+    """SemanticClassifier configuration for LLM + regex safety classification.
+
+    Attributes:
+        enable: Master switch for the classifier.
+        enable_llm: Whether to call an LLM for classification.
+        llm_provider: ``openai`` or ``anthropic``.
+        llm_model: Model identifier.
+        llm_temperature: Sampling temperature.
+        llm_max_tokens: Max tokens per classification call.
+        prompt_dir: Directory containing safety prompt templates (e.g., ``prompts/safety/*.txt``).
+        custom_patterns_json: Optional JSON array of custom regex patterns.
+    """
+
+    enable: bool = Field(default_factory=lambda: os.getenv("SEMANTIC_CLASSIFIER_ENABLE", "true").lower() == "true")
+    enable_llm: bool = Field(default_factory=lambda: os.getenv("SEMANTIC_CLASSIFIER_ENABLE_LLM", "false").lower() == "true")
+    llm_provider: str = Field(default_factory=lambda: os.getenv("SEMANTIC_CLASSIFIER_LLM_PROVIDER", "openai"))
+    llm_model: str = Field(default_factory=lambda: os.getenv("SEMANTIC_CLASSIFIER_LLM_MODEL", "gpt-4o"))
+    llm_temperature: float = Field(default_factory=lambda: float(os.getenv("SEMANTIC_CLASSIFIER_LLM_TEMPERATURE", "0.2")))
+    llm_max_tokens: int = Field(default_factory=lambda: int(os.getenv("SEMANTIC_CLASSIFIER_LLM_MAX_TOKENS", "512")))
+    prompt_dir: str = Field(default_factory=lambda: os.getenv("SEMANTIC_CLASSIFIER_PROMPT_DIR", "prompts/safety"))
+    custom_patterns_json: Optional[str] = Field(default_factory=lambda: os.getenv("SEMANTIC_CLASSIFIER_CUSTOM_PATTERNS", None))
+
+
+class AgentDebugConfig(BaseModel):
+    """AgentDebug configuration for failure analysis, prompt variants, and A/B testing.
+
+    Attributes:
+        enable: Master switch for AgentDebug.
+        enable_ab_testing: Whether to generate prompt variants and run A/B tests.
+        ab_variant_count: Number of variants to generate per base prompt.
+        auto_apply_winner: Whether the winning variant mutates the plan automatically.
+    """
+
+    enable: bool = Field(default_factory=lambda: os.getenv("AGENT_DEBUG_ENABLE", "true").lower() == "true")
+    enable_ab_testing: bool = Field(default_factory=lambda: os.getenv("AGENT_DEBUG_ENABLE_AB", "false").lower() == "true")
+    ab_variant_count: int = 3
+    auto_apply_winner: bool = False
+
+
+class NSIIntegrationConfig(BaseModel):
+    """NSIIntegration configuration for Horn-clause lifting.
+
+    Attributes:
+        enable: Master switch for NSI.
+        max_inference_iterations: Maximum forward-chaining iterations.
+    """
+
+    enable: bool = Field(default_factory=lambda: os.getenv("NSI_ENABLE", "true").lower() == "true")
+    max_inference_iterations: int = 10
+
+
 class AIOConfig(BaseModel):
     """Top-level Pydantic configuration for the entire AIO Framework.
 
@@ -469,6 +553,10 @@ class AIOConfig(BaseModel):
         safety_governance: Layer 11 — audit, compliance, governance voting.
         cognitive_immune: Layer 12 — anomaly scanning and auto-healing.
         neuro_symbolic: Neuro-Symbolic Mandate — hybrid neural + symbolic reasoning.
+        symbolic_prover: Z3-backed symbolic prover for plan verification.
+        semantic_classifier: LLM + regex safety classifier.
+        agent_debug: Failure analysis, prompt variants, and A/B testing.
+        nsi: Horn-clause lifting integration.
         governance_dashboard: Optional FastAPI dashboard bindings.
         mcp: Model Context Protocol client settings.
         streaming: Real-time cognitive streaming settings.
@@ -490,6 +578,10 @@ class AIOConfig(BaseModel):
     safety_governance: SafetyGovernanceConfig = Field(default_factory=SafetyGovernanceConfig)
     cognitive_immune: CognitiveImmuneConfig = Field(default_factory=CognitiveImmuneConfig)
     neuro_symbolic: NeuroSymbolicConfig = Field(default_factory=NeuroSymbolicConfig)
+    symbolic_prover: SymbolicProverConfig = Field(default_factory=SymbolicProverConfig)
+    semantic_classifier: SemanticClassifierConfig = Field(default_factory=SemanticClassifierConfig)
+    agent_debug: AgentDebugConfig = Field(default_factory=AgentDebugConfig)
+    nsi: NSIIntegrationConfig = Field(default_factory=NSIIntegrationConfig)
     governance_dashboard: GovernanceDashboardConfig = Field(default_factory=GovernanceDashboardConfig)
     mcp: MCPConfig = Field(default_factory=MCPConfig)
     streaming: StreamingConfig = Field(default_factory=StreamingConfig)

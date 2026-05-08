@@ -142,6 +142,18 @@ class AIOState(TypedDict, total=False):
     neuro_symbolic_grounding: Optional[List[Dict[str, Any]]]
     neuro_symbolic_verdict: Optional[Dict[str, Any]]
     neuro_symbolic_confidence: Optional[float]
+    # SymbolicProver + CausalGraphEngine
+    symbolic_prover_result: Optional[Dict[str, Any]]
+    # SemanticClassifier
+    semantic_classification: Optional[Dict[str, Any]]
+    # AgentDebug
+    agent_debug_analysis: Optional[Dict[str, Any]]
+    agent_debug_variants: Optional[List[Dict[str, Any]]]
+    agent_debug_ab_winner: Optional[Dict[str, Any]]
+    # NSIIntegration
+    nsi_horn_clauses: Optional[List[Dict[str, Any]]]
+    nsi_inferred_facts: Optional[List[str]]
+    nsi_derived_rules: Optional[List[Dict[str, Any]]]
     # Layer 9 — HITL & Feedback Loop
     hitl_status: Optional[str]
     hitl_request: Optional[Dict[str, Any]]
@@ -149,6 +161,8 @@ class AIOState(TypedDict, total=False):
     feedback_suggestions: Optional[List[Dict[str, Any]]]
     escalation_reason: Optional[List[str]]
     pending_feedback: Optional[Dict[str, Any]]
+    # Curiosity D032
+    information_seeking_queries: Optional[List[str]]
 
 
 def make_initial_state(raw_input: str = "", session_id: Optional[str] = None) -> AIOState:
@@ -231,10 +245,19 @@ def make_initial_state(raw_input: str = "", session_id: Optional[str] = None) ->
         "neuro_symbolic_grounding": None,
         "neuro_symbolic_verdict": None,
         "neuro_symbolic_confidence": None,
+        "symbolic_prover_result": None,
+        "semantic_classification": None,
+        "agent_debug_analysis": None,
+        "agent_debug_variants": None,
+        "agent_debug_ab_winner": None,
+        "nsi_horn_clauses": None,
+        "nsi_inferred_facts": None,
+        "nsi_derived_rules": None,
         "hitl_status": None,
         "hitl_request": None,
         "human_feedback": None,
         "feedback_suggestions": None,
         "escalation_reason": None,
         "pending_feedback": None,
+        "information_seeking_queries": None,
         }
