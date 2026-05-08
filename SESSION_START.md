@@ -61,6 +61,7 @@
 | Priority 6 | Performance Benchmark Suite | Complete | Unit + Integration |
 | Priority 7 | Packaging & Distribution | Complete | CI + Smoke |
 | Priority 8 | Real-Time Cognitive Streaming & Event Layer | Complete | Unit + Integration |
+| Priority 9 | Human-in-the-Loop & Feedback Loop | Complete | Unit + Integration |
 
 ---
 
@@ -109,6 +110,10 @@
 | `aio/streaming/` | Streaming package (events, manager, transports, store) | — |
 | `tests/unit/test_streaming_*.py` | Streaming unit tests (manager, transports, store, CLI) | — |
 | `docs/streaming.md` | Streaming subsystem documentation | — |
+| `aio/layers/hitl.py` | HITL gate, feedback collector, escalation policy, feedback loop engine | ~200 |
+| `tests/unit/test_hitl.py` | HITL gate logic, feedback ingestion, escalation thresholds, replay | — |
+| `tests/integration/test_hitl_graph.py` | Graph routing with HITL enabled | — |
+| `aio/dashboard/templates/hitl.html` | Dashboard HITL queue UI | — |
 
 ---
 
@@ -162,6 +167,12 @@ pytest tests/unit/test_streaming_*.py -v
 # Docker build and run
 docker build -t aio-framework .
 docker run aio-framework run "echo hello world"
+
+# HITL gating for destructive actions
+HITL_ENABLE=true aio run "delete all files"
+
+# HITL test suite
+pytest tests/unit/test_hitl.py tests/unit/test_governance_dashboard.py tests/integration/test_hitl_graph.py -v
 ```
 
 ---
@@ -214,6 +225,7 @@ If context is lost between sessions:
 - **Feature flags**: All new functionality is gated by env-driven flags (e.g., `ENABLE_PRIORITY_3`, `MEMORY_BACKEND_TYPE`, `COGNITIVE_IMMUNE_LEARN_ENABLE`, `MULTI_AGENT_USE_LANGGRAPH_BACKEND`, `GOVERNANCE_DASHBOARD_ENABLE`).
 - **Benchmark Suite feature flags**: `BENCHMARK_ITERATIONS`, `BENCHMARK_WARMUP_ITERATIONS`, `BENCHMARK_SCENARIOS`, `BENCHMARK_BASELINE_PATH`, `BENCHMARK_REGRESSION_THRESHOLD_PERCENT`, `BENCHMARK_OUTPUT_DIR`, `BENCHMARK_ENABLE_MEMORY_PROFILING`, `BENCHMARK_ENABLE_HTML_REPORT`.
 - **Streaming feature flags**: `ENABLE_STREAMING`, `STREAMING_TRANSPORT`, `STREAMING_EVENT_PERSISTENCE`, `STREAMING_MAX_BUFFER_EVENTS`.
+- **HITL feature flags**: `HITL_ENABLE`, `HITL_DESTRUCTIVE_PATTERNS`, `HITL_TIMEOUT_SECONDS`, `HITL_AUTO_REJECT_ON_TIMEOUT`, `HITL_ESCALATION_ON_SAFETY_VIOLATION`, `HITL_ESCALATION_ON_IMMUNE_ALERT`, `HITL_ANOMALY_THRESHOLD_FOR_ESCALATION`, `HITL_FEEDBACK_REPLAY_MAX_CORRECTIONS`.
 - **Observability**: Every layer method wraps logic in `self.obs.start_span()` and calls `record_latency()` + `count_node()`.
 - **Graceful degradation**: All external dependencies are optional with feature flags (`OTEL_AVAILABLE`, `REDIS_AVAILABLE`, `PSYCOPG2_AVAILABLE`, `HTTPX_AVAILABLE`, etc.).
 - **No new required dependencies**: Priority 4 added `redis>=5.0.0` and `psycopg2-binary>=2.9.0` to `requirements.txt`, but both are optional at runtime (guarded by availability checks and feature flags). Priority 5 uses existing `httpx>=0.25.0` for MCP SSE transport.
@@ -224,4 +236,4 @@ If context is lost between sessions:
 
 ---
 
-*Last updated: Post-PR #17 — Real-Time Cognitive Streaming & Event Layer (Priority 8)*
+*Last updated: Post-PR #21 — Human-in-the-Loop & Feedback Loop Integration (Priority 9)*
