@@ -17,6 +17,7 @@ from .models import (
     GovernanceDashboardConfig,
     MCPConfig,
     MCPServerConfig,
+    HitlConfig,
 )
 from .deps import (
     OTEL_AVAILABLE,
@@ -45,6 +46,7 @@ from .deps import (
     DEFAULT_MCP_SERVERS_JSON,
     DEFAULT_MCP_TIMEOUT_SECONDS,
     DEFAULT_NEURO_SYMBOLIC_ENABLE,
+    DEFAULT_HITL_ENABLE,
     HTTPX_AVAILABLE,
 )
 
@@ -93,5 +95,6 @@ __all__ = [
     "DEFAULT_MCP_SERVERS_JSON",
     "DEFAULT_MCP_TIMEOUT_SECONDS",
     "DEFAULT_NEURO_SYMBOLIC_ENABLE",
+    "DEFAULT_HITL_ENABLE",
     "HTTPX_AVAILABLE",
 ]

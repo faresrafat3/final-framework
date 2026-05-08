@@ -40,6 +40,7 @@ from .config.models import (
     MCPServerConfig,
     BenchmarkConfig,
     StreamingConfig,
+    HitlConfig,
 )
 from .config.deps import (
     OTEL_AVAILABLE,
@@ -70,6 +71,7 @@ from .config.deps import (
     DEFAULT_MCP_SERVERS_JSON,
     DEFAULT_MCP_TIMEOUT_SECONDS,
     DEFAULT_NEURO_SYMBOLIC_ENABLE,
+    DEFAULT_HITL_ENABLE,
     HTTPX_AVAILABLE,
     PSUTIL_AVAILABLE,
     JINJA2_AVAILABLE,
@@ -114,6 +116,12 @@ from .layers.neuro_symbolic import (
     SymbolicRule,
     KnowledgeGraph,
     FormalVerifier,
+)
+from .layers.hitl import (
+    HitlGate,
+    FeedbackCollector,
+    EscalationPolicy,
+    FeedbackLoopEngine,
 )
 from .state import AIOState, make_initial_state
 from .graph.builder import build_aio_graph
@@ -209,6 +217,11 @@ from .graph.nodes import (
     node_neuro_symbolic_ground,
     node_neuro_symbolic_verify,
     node_neuro_symbolic_synthesize,
+    node_hitl_gate,
+    node_hitl_wait,
+    node_feedback_collect,
+    node_escalation_policy,
+    node_feedback_loop,
 )
 from .graph.routing import (
     route_memory_confidence,
@@ -225,6 +238,8 @@ from .graph.routing import (
     route_self_evolution,
     route_neuro_symbolic,
     route_post_neuro_symbolic,
+    route_hitl,
+    route_escalation_policy,
 )
 
 __all__ = [
@@ -275,6 +290,7 @@ __all__ = [
     "DEFAULT_MCP_SERVERS_JSON",
     "DEFAULT_MCP_TIMEOUT_SECONDS",
     "DEFAULT_NEURO_SYMBOLIC_ENABLE",
+    "DEFAULT_HITL_ENABLE",
     "HTTPX_AVAILABLE",
     "PSUTIL_AVAILABLE",
     "JINJA2_AVAILABLE",
@@ -320,6 +336,10 @@ __all__ = [
     "SymbolicRule",
     "KnowledgeGraph",
     "FormalVerifier",
+    "HitlGate",
+    "FeedbackCollector",
+    "EscalationPolicy",
+    "FeedbackLoopEngine",
     "AuditStore",
     "create_dashboard_app",
     "BenchmarkConfig",
@@ -387,6 +407,11 @@ __all__ = [
     "node_neuro_symbolic_ground",
     "node_neuro_symbolic_verify",
     "node_neuro_symbolic_synthesize",
+    "node_hitl_gate",
+    "node_hitl_wait",
+    "node_feedback_collect",
+    "node_escalation_policy",
+    "node_feedback_loop",
     "route_memory_confidence",
     "route_verification",
     "route_failure",
@@ -401,4 +426,6 @@ __all__ = [
     "route_self_evolution",
     "route_neuro_symbolic",
     "route_post_neuro_symbolic",
+    "route_hitl",
+    "route_escalation_policy",
 ]

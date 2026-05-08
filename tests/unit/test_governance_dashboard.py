@@ -88,6 +88,38 @@ class TestSafetyGovernanceStoreIntegration:
         assert result["governance_result"]["vote_outcome"] == "approved"
 
 
+class TestGovernanceDashboardHitl:
+    def test_hitl_html_renders(self, client):
+        response = client.get("/hitl")
+        assert response.status_code == 200
+        assert "HITL Review Queue" in response.text
+
+    def test_api_hitl_list_and_filter(self, client):
+        store = AuditStore()
+        store.record_hitl_request("s1", {"request_id": "r1", "status": "pending", "plan": "drop table"})
+        store.record_hitl_request("s1", {"request_id": "r2", "status": "approved", "plan": "echo"})
+        app = create_dashboard_app(store)
+        c = TestClient(app)
+        all_reqs = c.get("/api/hitl").json()
+        assert len(all_reqs) == 2
+        pending = c.get("/api/hitl?status=pending").json()
+        assert len(pending) == 1
+        assert pending[0]["request_id"] == "r1"
+
+    def test_api_hitl_approve_reject(self, client):
+        store = AuditStore()
+        store.record_hitl_request("s1", {"request_id": "r1", "status": "pending", "plan": "drop"})
+        app = create_dashboard_app(store)
+        c = TestClient(app)
+        resp = c.post("/api/hitl", json={"session_id": "s1", "request_id": "r1", "action": "approve", "comment": "ok"})
+        assert resp.status_code == 200
+        assert resp.json()["success"] is True
+        reqs = c.get("/api/hitl?status=approved").json()
+        assert len(reqs) == 1
+        resp2 = c.post("/api/hitl", json={"session_id": "s1", "request_id": "r1", "action": "reject"})
+        assert resp2.json()["success"] is True
+
+
 class TestGovernanceDashboardConfig:
     def test_default_disable(self):
         cfg = GovernanceDashboardConfig()

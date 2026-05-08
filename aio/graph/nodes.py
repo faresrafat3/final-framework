@@ -16,6 +16,7 @@ from ..layers.multi_agent import MultiAgentCoordinator
 from ..layers.safety_governance import SafetyGovernance
 from ..layers.cognitive_immune import CognitiveImmuneSystem
 from ..layers.neuro_symbolic import NeuroSymbolicMandate
+from ..layers.hitl import HitlGate, FeedbackCollector, EscalationPolicy, FeedbackLoopEngine
 from ..state import AIOState
 
 
@@ -68,6 +69,11 @@ _LAYER_MAP: dict[str, tuple[str, int]] = {
     "neuro_symbolic_ground": ("Neuro-Symbolic Mandate", 13),
     "neuro_symbolic_verify": ("Neuro-Symbolic Mandate", 13),
     "neuro_symbolic_synthesize": ("Neuro-Symbolic Mandate", 13),
+    "hitl_gate": ("Layer 9 — HITL", 9),
+    "hitl_wait": ("Layer 9 — HITL", 9),
+    "feedback_collect": ("Layer 9 — HITL", 9),
+    "escalation_policy_eval": ("Layer 9 — HITL", 9),
+    "feedback_loop_replay": ("Layer 9 — HITL", 9),
 }
 
 
@@ -370,3 +376,38 @@ def node_neuro_symbolic_verify(state: AIOState, layer: NeuroSymbolicMandate, str
 
 def node_neuro_symbolic_synthesize(state: AIOState, layer: NeuroSymbolicMandate, streaming_manager: Any = None) -> AIOState:
     return layer.synthesize(state)
+
+
+# HITL nodes
+
+def node_hitl_gate(state: AIOState, layer: HitlGate, streaming_manager: Any = None) -> AIOState:
+    return layer.check(state)
+
+
+def node_hitl_wait(state: AIOState, streaming_manager: Any = None) -> AIOState:
+    return state
+
+
+def node_feedback_collect(
+    state: AIOState,
+    feedback_collector: FeedbackCollector,
+    mem: Any,
+    streaming_manager: Any = None,
+) -> AIOState:
+    state = feedback_collector.collect(state)
+    state = feedback_collector.ingest_to_memory(state, mem)
+    return state
+
+
+def node_escalation_policy(state: AIOState, layer: EscalationPolicy, streaming_manager: Any = None) -> AIOState:
+    return layer.evaluate(state)
+
+
+def node_feedback_loop(
+    state: AIOState,
+    feedback_loop_engine: FeedbackLoopEngine,
+    planning: Any = None,
+    toolopt: Any = None,
+    streaming_manager: Any = None,
+) -> AIOState:
+    return feedback_loop_engine.replay(state, planning=planning, toolopt=toolopt)

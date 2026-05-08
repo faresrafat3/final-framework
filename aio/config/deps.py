@@ -134,3 +134,4 @@ DEFAULT_MCP_ENABLE = os.getenv("MCP_ENABLE", "false").lower() == "true"
 DEFAULT_MCP_SERVERS_JSON = os.getenv("MCP_SERVERS", "[]")
 DEFAULT_MCP_TIMEOUT_SECONDS = int(os.getenv("MCP_TIMEOUT_SECONDS", "30"))
 DEFAULT_NEURO_SYMBOLIC_ENABLE = os.getenv("NEURO_SYMBOLIC_ENABLE", "true").lower() == "true"
+DEFAULT_HITL_ENABLE = os.getenv("HITL_ENABLE", "false").lower() == "true"

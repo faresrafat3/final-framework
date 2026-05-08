@@ -21,6 +21,7 @@ class AuditStore:
         self._lock = threading.Lock()
         self._sessions: Dict[str, List[Dict[str, Any]]] = {}
         self._violations: Dict[str, List[Dict[str, Any]]] = {}
+        self._hitl: Dict[str, List[Dict[str, Any]]] = {}
 
     # ------------------------------------------------------------------
     # Write API — called by SafetyGovernance or background collectors
@@ -184,3 +185,69 @@ class AuditStore:
     def _add_violation(self, session_id: str, entry: Dict[str, Any]) -> None:
         with self._lock:
             self._violations.setdefault(session_id, []).append(entry)
+
+    # ------------------------------------------------------------------
+    # HITL queue API
+    # ------------------------------------------------------------------
+
+    def record_hitl_request(self, session_id: str, request: Dict[str, Any]) -> None:
+        """Record a HITL request into the in-memory queue.
+
+        Args:
+            session_id: Session identifier.
+            request: HITL request dict (must contain ``request_id``).
+        """
+        with self._lock:
+            self._hitl.setdefault(session_id, []).append(dict(request))
+
+    def get_hitl_requests(
+        self,
+        session_id: Optional[str] = None,
+        status: Optional[str] = None,
+    ) -> List[Dict[str, Any]]:
+        """Return HITL requests, optionally filtered by session and status.
+
+        Args:
+            session_id: Optional session filter.
+            status: Optional status filter (``pending``, ``approved``, ``rejected``).
+
+        Returns:
+            List of matching HITL request dicts.
+        """
+        with self._lock:
+            if session_id is None:
+                results: List[Dict[str, Any]] = []
+                for entries in self._hitl.values():
+                    results.extend(entries)
+            else:
+                results = list(self._hitl.get(session_id, []))
+        if status is not None:
+            results = [r for r in results if r.get("status") == status]
+        return results
+
+    def update_hitl_request(
+        self,
+        session_id: str,
+        request_id: str,
+        status: str,
+        comment: Optional[str] = None,
+    ) -> bool:
+        """Update the status of a HITL request.
+
+        Args:
+            session_id: Session identifier.
+            request_id: The request UUID.
+            status: New status (``approved`` or ``rejected``).
+            comment: Optional operator comment.
+
+        Returns:
+            True if the request was found and updated.
+        """
+        with self._lock:
+            for req in self._hitl.get(session_id, []):
+                if req.get("request_id") == request_id:
+                    req["status"] = status
+                    if comment is not None:
+                        req["comment"] = comment
+                    return True
+            return False
