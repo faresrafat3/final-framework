@@ -131,6 +131,12 @@ from .layers.hitl import (
     EscalationPolicy,
     FeedbackLoopEngine,
 )
+from .memory.embeddings import (
+    BaseEmbeddingEngine,
+    RealEmbeddingEngine,
+    PseudoEmbeddingEngine,
+    EmbeddingEngineFactory,
+)
 from .state import AIOState, make_initial_state
 from .graph.builder import build_aio_graph
 from .dashboard.store import AuditStore
@@ -357,6 +363,10 @@ __all__ = [
     "FeedbackCollector",
     "EscalationPolicy",
     "FeedbackLoopEngine",
+    "BaseEmbeddingEngine",
+    "RealEmbeddingEngine",
+    "PseudoEmbeddingEngine",
+    "EmbeddingEngineFactory",
     "AuditStore",
     "create_dashboard_app",
     "BenchmarkConfig",

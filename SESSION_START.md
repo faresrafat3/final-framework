@@ -114,6 +114,7 @@
 | `tests/unit/test_hitl.py` | HITL gate logic, feedback ingestion, escalation thresholds, replay | — |
 | `tests/integration/test_hitl_graph.py` | Graph routing with HITL enabled | — |
 | `aio/dashboard/templates/hitl.html` | Dashboard HITL queue UI | — |
+| `aio/memory/embeddings.py` | Embedding engines: `BaseEmbeddingEngine`, `RealEmbeddingEngine`, `PseudoEmbeddingEngine`, `EmbeddingEngineFactory` | ~100 |
 
 ---
 
