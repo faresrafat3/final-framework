@@ -16,6 +16,10 @@ from ..layers.multi_agent import MultiAgentCoordinator
 from ..layers.safety_governance import SafetyGovernance
 from ..layers.cognitive_immune import CognitiveImmuneSystem
 from ..layers.neuro_symbolic import NeuroSymbolicMandate
+from ..layers.symbolic_prover import SymbolicProver
+from ..layers.semantic_classifier import SemanticClassifier
+from ..layers.agent_debug import AgentDebug
+from ..layers.nsi_integration import NSIIntegration
 from ..layers.hitl import HitlGate, FeedbackCollector, EscalationPolicy, FeedbackLoopEngine
 from ..state import AIOState
 
@@ -69,6 +73,10 @@ _LAYER_MAP: dict[str, tuple[str, int]] = {
     "neuro_symbolic_ground": ("Neuro-Symbolic Mandate", 13),
     "neuro_symbolic_verify": ("Neuro-Symbolic Mandate", 13),
     "neuro_symbolic_synthesize": ("Neuro-Symbolic Mandate", 13),
+    "symbolic_prover": ("Symbolic Prover", 13),
+    "semantic_classifier": ("Semantic Classifier", 8),
+    "agent_debug": ("Agent Debug", 9),
+    "nsi_lift": ("NSI Integration", 13),
     "hitl_gate": ("Layer 9 — HITL", 9),
     "hitl_wait": ("Layer 9 — HITL", 9),
     "feedback_collect": ("Layer 9 — HITL", 9),
@@ -411,3 +419,27 @@ def node_feedback_loop(
     streaming_manager: Any = None,
 ) -> AIOState:
     return feedback_loop_engine.replay(state, planning=planning, toolopt=toolopt)
+
+
+# SymbolicProver node
+
+def node_symbolic_prover(state: AIOState, layer: SymbolicProver, streaming_manager: Any = None) -> AIOState:
+    return layer.prove(state)
+
+
+# SemanticClassifier node
+
+def node_semantic_classifier(state: AIOState, layer: SemanticClassifier, streaming_manager: Any = None) -> AIOState:
+    return layer.classify_state(state)
+
+
+# AgentDebug node
+
+def node_agent_debug(state: AIOState, layer: AgentDebug, streaming_manager: Any = None) -> AIOState:
+    return layer.run(state)
+
+
+# NSIIntegration node
+
+def node_nsi_lift(state: AIOState, layer: NSIIntegration, streaming_manager: Any = None) -> AIOState:
+    return layer.run(state)

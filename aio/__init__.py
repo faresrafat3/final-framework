@@ -35,6 +35,10 @@ from .config.models import (
     SafetyGovernanceConfig,
     CognitiveImmuneConfig,
     NeuroSymbolicConfig,
+    SymbolicProverConfig,
+    SemanticClassifierConfig,
+    AgentDebugConfig,
+    NSIIntegrationConfig,
     GovernanceDashboardConfig,
     MCPConfig,
     MCPServerConfig,
@@ -117,6 +121,10 @@ from .layers.neuro_symbolic import (
     KnowledgeGraph,
     FormalVerifier,
 )
+from .layers.symbolic_prover import SymbolicProver, CausalGraphEngine
+from .layers.semantic_classifier import SemanticClassifier
+from .layers.agent_debug import AgentDebug
+from .layers.nsi_integration import NSIIntegration
 from .layers.hitl import (
     HitlGate,
     FeedbackCollector,
@@ -258,6 +266,10 @@ __all__ = [
     "SafetyGovernanceConfig",
     "CognitiveImmuneConfig",
     "NeuroSymbolicConfig",
+    "SymbolicProverConfig",
+    "SemanticClassifierConfig",
+    "AgentDebugConfig",
+    "NSIIntegrationConfig",
     "GovernanceDashboardConfig",
     "MCPConfig",
     "MCPServerConfig",
@@ -336,6 +348,11 @@ __all__ = [
     "SymbolicRule",
     "KnowledgeGraph",
     "FormalVerifier",
+    "SymbolicProver",
+    "CausalGraphEngine",
+    "SemanticClassifier",
+    "AgentDebug",
+    "NSIIntegration",
     "HitlGate",
     "FeedbackCollector",
     "EscalationPolicy",

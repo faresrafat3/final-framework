@@ -38,6 +38,10 @@ from .neuro_symbolic import (
     KnowledgeGraph,
     FormalVerifier,
 )
+from .symbolic_prover import SymbolicProver, CausalGraphEngine
+from .semantic_classifier import SemanticClassifier
+from .agent_debug import AgentDebug
+from .nsi_integration import NSIIntegration
 from .hitl import (
     HitlGate,
     FeedbackCollector,
@@ -87,6 +91,11 @@ __all__ = [
     "SymbolicRule",
     "KnowledgeGraph",
     "FormalVerifier",
+    "SymbolicProver",
+    "CausalGraphEngine",
+    "SemanticClassifier",
+    "AgentDebug",
+    "NSIIntegration",
     "HitlGate",
     "FeedbackCollector",
     "EscalationPolicy",

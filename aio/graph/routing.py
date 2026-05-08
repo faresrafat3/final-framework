@@ -125,3 +125,33 @@ def route_post_neuro_symbolic(state: AIOState, config: "AIOConfig") -> str:
     if not config.neuro_symbolic.enable:
         return "gstep_evaluate"
     return "gstep_evaluate"
+
+
+def route_symbolic_prover(state: AIOState, config: "AIOConfig") -> str:
+    if not config.symbolic_prover.enable:
+        return "verify_plan"
+    result = state.get("symbolic_prover_result", {})
+    if result.get("overall_passed") is False:
+        return "debug_and_replan"
+    return "verify_plan"
+
+
+def route_semantic_classifier(state: AIOState, config: "AIOConfig") -> str:
+    if not config.semantic_classifier.enable:
+        return "memory_retrieve"
+    classification = state.get("semantic_classification", {})
+    if classification.get("overall_risk") in ("high", "critical"):
+        return "escalate"
+    return "memory_retrieve"
+
+
+def route_agent_debug(state: AIOState, config: "AIOConfig") -> str:
+    if not config.agent_debug.enable:
+        return END
+    return "feedback_loop_replay"
+
+
+def route_nsi(state: AIOState, config: "AIOConfig") -> str:
+    if not config.nsi.enable:
+        return "neuro_symbolic_synthesize"
+    return "neuro_symbolic_synthesize"

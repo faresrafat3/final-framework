@@ -21,61 +21,69 @@ from ..layers.multi_agent import MultiAgentCoordinator
 from ..layers.safety_governance import SafetyGovernance
 from ..layers.cognitive_immune import CognitiveImmuneSystem
 from ..layers.neuro_symbolic import NeuroSymbolicMandate
+from ..layers.symbolic_prover import SymbolicProver
+from ..layers.semantic_classifier import SemanticClassifier
+from ..layers.agent_debug import AgentDebug
+from ..layers.nsi_integration import NSIIntegration
 from ..layers.hitl import HitlGate, FeedbackCollector, EscalationPolicy, FeedbackLoopEngine
 from ..state import AIOState
 from .nodes import (
-    node_context_ingest,
-    node_context_sculpt,
-    node_memory_retrieve,
-    node_memory_encode,
-    node_memory_verify,
-    node_memory_store,
-    node_memory_consolidate,
-    node_plan_generate,
-    node_maci_select,
-    node_hiplan,
-    node_flare,
-    node_lwm_augment,
-    node_ppa_analyze,
-    node_spiral_mcts,
-    node_mars_reflect,
-    node_vmao_decompose,
-    node_curiosity_intrinsic,
-    node_curiosity_seek,
-    node_curiosity_serendipity,
-    node_curiosity_counterfactual,
-    node_curiosity_umwelt,
-    node_verify_plan,
-    node_debug_and_replan,
-    node_gstep_evaluate,
-    node_hdpo_optimize,
-    node_jtpro_optimize,
-    node_execute_action,
-    node_analytics_record,
-    node_failure_assess,
-    node_retry_with_backoff,
-    node_escalate,
-    node_graceful_degrade,
-    node_neuroshield,
-    node_failure_learn,
-    node_finalize_output,
-    node_self_evolution_analyze,
-    node_multi_agent_decompose,
-    node_multi_agent_dispatch,
-    node_multi_agent_aggregate,
-    node_multi_agent_synthesize,
-    node_safety_governance_audit,
-    node_cognitive_immune_scan,
-    node_neuro_symbolic_parse,
-    node_neuro_symbolic_infer,
-    node_neuro_symbolic_ground,
-    node_neuro_symbolic_verify,
-    node_neuro_symbolic_synthesize,
-    node_hitl_gate,
-    node_hitl_wait,
-    node_feedback_collect,
-    node_escalation_policy,
-    node_feedback_loop,
+node_context_ingest,
+node_context_sculpt,
+node_memory_retrieve,
+node_memory_encode,
+node_memory_verify,
+node_memory_store,
+node_memory_consolidate,
+node_plan_generate,
+node_maci_select,
+node_hiplan,
+node_flare,
+node_lwm_augment,
+node_ppa_analyze,
+node_spiral_mcts,
+node_mars_reflect,
+node_vmao_decompose,
+node_curiosity_intrinsic,
+node_curiosity_seek,
+node_curiosity_serendipity,
+node_curiosity_counterfactual,
+node_curiosity_umwelt,
+node_verify_plan,
+node_debug_and_replan,
+node_gstep_evaluate,
+node_hdpo_optimize,
+node_jtpro_optimize,
+node_execute_action,
+node_analytics_record,
+node_failure_assess,
+node_retry_with_backoff,
+node_escalate,
+node_graceful_degrade,
+node_neuroshield,
+node_failure_learn,
+node_finalize_output,
+node_self_evolution_analyze,
+node_multi_agent_decompose,
+node_multi_agent_dispatch,
+node_multi_agent_aggregate,
+node_multi_agent_synthesize,
+node_safety_governance_audit,
+node_cognitive_immune_scan,
+node_neuro_symbolic_parse,
+node_neuro_symbolic_infer,
+node_neuro_symbolic_ground,
+node_neuro_symbolic_verify,
+node_neuro_symbolic_synthesize,
+node_symbolic_prover,
+node_semantic_classifier,
+node_agent_debug,
+node_nsi_lift,
+node_hitl_gate,
+node_hitl_wait,
+node_feedback_collect,
+node_escalation_policy,
+node_feedback_loop,
 )
 from .routing import (
     route_memory_confidence,
@@ -93,6 +101,10 @@ from .routing import (
     route_post_neuro_symbolic,
     route_hitl,
     route_escalation_policy,
+    route_symbolic_prover,
+    route_semantic_classifier,
+    route_agent_debug,
+    route_nsi,
 )
 
 
@@ -261,6 +273,11 @@ def build_aio_graph(
     governance = SafetyGovernance(cfg.safety_governance, obs, store=store)
     immune = CognitiveImmuneSystem(cfg.cognitive_immune, obs)
     ns_mandate = NeuroSymbolicMandate(cfg.neuro_symbolic, obs)
+    symbolic_prover = SymbolicProver(cfg.symbolic_prover, obs)
+    semantic_classifier = SemanticClassifier(cfg.semantic_classifier, obs)
+    from ..config.models import AgentDebugConfig
+    agent_debug = AgentDebug(AgentDebugConfig(), obs)
+    nsi = NSIIntegration(cfg.nsi, obs)
 
     # HITL nodes
     hitl_gate = HitlGate(cfg.hitl, obs)
@@ -282,6 +299,12 @@ def build_aio_graph(
     _add("neuro_symbolic_ground", lambda s: node_neuro_symbolic_ground(s, ns_mandate))
     _add("neuro_symbolic_verify", lambda s: node_neuro_symbolic_verify(s, ns_mandate))
     _add("neuro_symbolic_synthesize", lambda s: node_neuro_symbolic_synthesize(s, ns_mandate))
+
+    # Week-1 v2.0-RC1 nodes
+    _add("symbolic_prover", lambda s: node_symbolic_prover(s, symbolic_prover))
+    _add("semantic_classifier", lambda s: node_semantic_classifier(s, semantic_classifier))
+    _add("agent_debug", lambda s: node_agent_debug(s, agent_debug))
+    _add("nsi_lift", lambda s: node_nsi_lift(s, nsi))
 
     # HITL graph nodes
     _add("hitl_gate", lambda s: node_hitl_gate(s, hitl_gate))
@@ -339,7 +362,9 @@ def build_aio_graph(
     graph.add_edge("neuro_symbolic_infer", "neuro_symbolic_ground")
     graph.add_edge("neuro_symbolic_ground", "neuro_symbolic_verify")
     graph.add_conditional_edges("neuro_symbolic_verify", lambda s: route_neuro_symbolic(s, cfg))
-    graph.add_edge("neuro_symbolic_synthesize", "verify_plan")
+    graph.add_edge("neuro_symbolic_synthesize", "nsi_lift")
+    graph.add_edge("nsi_lift", "symbolic_prover")
+    graph.add_conditional_edges("symbolic_prover", lambda s: route_symbolic_prover(s, cfg))
     graph.add_edge("debug_and_replan", "neuro_symbolic_parse")
 
     # Verification branch
@@ -365,8 +390,9 @@ def build_aio_graph(
     # Post-finalize reflection pipeline
     graph.add_conditional_edges("finalize_output", lambda s: route_post_finalize(s, cfg))
     graph.add_edge("feedback_collect", "self_evolution_analyze")
-    graph.add_edge("self_evolution_analyze", "cognitive_immune_scan")
-    graph.add_conditional_edges("cognitive_immune_scan", lambda s: route_self_evolution(s, cfg))
+    graph.add_edge("self_evolution_analyze", "agent_debug")
+    graph.add_conditional_edges("agent_debug", lambda s: route_agent_debug(s, cfg))
+    graph.add_edge("cognitive_immune_scan", "escalation_policy_eval")
     graph.add_edge("escalation_policy_eval", "feedback_loop_replay")
     graph.add_edge("feedback_loop_replay", END)
 

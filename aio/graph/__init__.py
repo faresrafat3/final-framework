@@ -43,6 +43,10 @@ from .nodes import (
     node_multi_agent_synthesize,
     node_safety_governance_audit,
     node_cognitive_immune_scan,
+    node_symbolic_prover,
+    node_semantic_classifier,
+    node_agent_debug,
+    node_nsi_lift,
 )
 from .routing import (
     route_memory_confidence,
@@ -57,6 +61,10 @@ from .routing import (
     route_safety_governance,
     route_post_finalize,
     route_self_evolution,
+    route_symbolic_prover,
+    route_semantic_classifier,
+    route_agent_debug,
+    route_nsi,
 )
 
 __all__ = [
@@ -104,6 +112,10 @@ __all__ = [
     "node_multi_agent_synthesize",
     "node_safety_governance_audit",
     "node_cognitive_immune_scan",
+    "node_symbolic_prover",
+    "node_semantic_classifier",
+    "node_agent_debug",
+    "node_nsi_lift",
     "route_memory_confidence",
     "route_verification",
     "route_failure",
@@ -116,4 +128,8 @@ __all__ = [
     "route_safety_governance",
     "route_post_finalize",
     "route_self_evolution",
+    "route_symbolic_prover",
+    "route_semantic_classifier",
+    "route_agent_debug",
+    "route_nsi",
 ]
