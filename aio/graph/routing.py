@@ -81,14 +81,35 @@ def route_safety_governance(state: AIOState, config: "AIOConfig") -> str:
     return "safety_governance_audit"
 
 
+def route_hitl(state: AIOState, config: "AIOConfig") -> str:
+    if not config.hitl.enable:
+        return "execute_action"
+    status = state.get("hitl_status")
+    if status == "pending":
+        return "hitl_wait"
+    if status == "rejected":
+        return "escalate"
+    return "execute_action"
+
+
 def route_post_finalize(state: AIOState, config: "AIOConfig") -> str:
-    if not config.enable_priority_3 or not config.self_evolution.enable:
+    if not config.enable_priority_3:
         return END
-    return "self_evolution_analyze"
+    if config.hitl.enable or config.self_evolution.enable:
+        return "feedback_collect"
+    return END
 
 
 def route_self_evolution(state: AIOState, config: "AIOConfig") -> str:
+    if config.hitl.enable:
+        return "escalation_policy_eval"
     return END
+
+
+def route_escalation_policy(state: AIOState, config: "AIOConfig") -> str:
+    if state.get("escalation_reason"):
+        return "feedback_loop_replay"
+    return "feedback_loop_replay"
 
 
 def route_neuro_symbolic(state: AIOState, config: "AIOConfig") -> str:

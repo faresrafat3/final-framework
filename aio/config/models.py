@@ -18,6 +18,7 @@ from .deps import (
     DEFAULT_MCP_ENABLE,
     DEFAULT_MCP_SERVERS_JSON,
     DEFAULT_MCP_TIMEOUT_SECONDS,
+    DEFAULT_HITL_ENABLE,
 )
 
 
@@ -420,6 +421,30 @@ def _parse_benchmark_scenarios(raw: str) -> List[str]:
     return [s.strip() for s in raw.split(",") if s.strip()]
 
 
+class HitlConfig(BaseModel):
+    """Layer 9 — Human-in-the-Loop and Feedback Loop configuration.
+
+    Attributes:
+        enable: Master switch for HITL gating and feedback loops.
+        destructive_patterns: Regex patterns that classify a plan as destructive.
+        timeout_seconds: Max seconds before a pending HITL request times out.
+        auto_reject_on_timeout: Whether to auto-reject pending requests on timeout.
+        escalation_on_safety_violation: Auto-escalate when safety violations exist.
+        escalation_on_immune_alert: Auto-escalate when immune status is ALERT.
+        anomaly_threshold_for_escalation: Anomaly score that triggers escalation.
+        feedback_replay_max_corrections: Max corrections to replay per turn.
+    """
+
+    enable: bool = Field(default_factory=lambda: DEFAULT_HITL_ENABLE)
+    destructive_patterns: List[str] = Field(default_factory=lambda: ["delete", "drop", "rm ", "remove", "destroy", "overwrite"])
+    timeout_seconds: int = 300
+    auto_reject_on_timeout: bool = True
+    escalation_on_safety_violation: bool = True
+    escalation_on_immune_alert: bool = True
+    anomaly_threshold_for_escalation: float = 0.8
+    feedback_replay_max_corrections: int = 5
+
+
 class AIOConfig(BaseModel):
     """Top-level Pydantic configuration for the entire AIO Framework.
 
@@ -446,6 +471,8 @@ class AIOConfig(BaseModel):
         neuro_symbolic: Neuro-Symbolic Mandate — hybrid neural + symbolic reasoning.
         governance_dashboard: Optional FastAPI dashboard bindings.
         mcp: Model Context Protocol client settings.
+        streaming: Real-time cognitive streaming settings.
+        hitl: Human-in-the-Loop and feedback loop settings.
         enable_priority_3: Global toggle for Priority 3 layers (9–12).
     """
 
@@ -466,4 +493,5 @@ class AIOConfig(BaseModel):
     governance_dashboard: GovernanceDashboardConfig = Field(default_factory=GovernanceDashboardConfig)
     mcp: MCPConfig = Field(default_factory=MCPConfig)
     streaming: StreamingConfig = Field(default_factory=StreamingConfig)
+    hitl: HitlConfig = Field(default_factory=HitlConfig)
     enable_priority_3: bool = Field(default_factory=lambda: os.getenv("ENABLE_PRIORITY_3", "true").lower() == "true")

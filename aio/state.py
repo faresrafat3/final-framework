@@ -142,6 +142,13 @@ class AIOState(TypedDict, total=False):
     neuro_symbolic_grounding: Optional[List[Dict[str, Any]]]
     neuro_symbolic_verdict: Optional[Dict[str, Any]]
     neuro_symbolic_confidence: Optional[float]
+    # Layer 9 — HITL & Feedback Loop
+    hitl_status: Optional[str]
+    hitl_request: Optional[Dict[str, Any]]
+    human_feedback: Optional[List[Dict[str, Any]]]
+    feedback_suggestions: Optional[List[Dict[str, Any]]]
+    escalation_reason: Optional[List[str]]
+    pending_feedback: Optional[Dict[str, Any]]
 
 
 def make_initial_state(raw_input: str = "", session_id: Optional[str] = None) -> AIOState:
@@ -224,4 +231,10 @@ def make_initial_state(raw_input: str = "", session_id: Optional[str] = None) ->
         "neuro_symbolic_grounding": None,
         "neuro_symbolic_verdict": None,
         "neuro_symbolic_confidence": None,
+        "hitl_status": None,
+        "hitl_request": None,
+        "human_feedback": None,
+        "feedback_suggestions": None,
+        "escalation_reason": None,
+        "pending_feedback": None,
         }

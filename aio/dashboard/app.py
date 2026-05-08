@@ -78,6 +78,34 @@ def create_dashboard_app(store: AuditStore, streaming_manager: Optional[Any] = N
     def api_violations(session_id: str | None = None) -> List[Dict[str, Any]]:
         return store.get_violations(session_id)
 
+    @app.get("/hitl", response_class=HTMLResponse)
+    def hitl_page(request: Request) -> Any:
+        pending = store.get_hitl_requests(status="pending")
+        all_requests = store.get_hitl_requests()
+        return templates.TemplateResponse(
+            request=request,
+            name="hitl.html",
+            context={
+                "pending": pending,
+                "all_requests": all_requests,
+            },
+        )
+
+    @app.get("/api/hitl")
+    def api_hitl_list(session_id: str | None = None, status: str | None = None) -> List[Dict[str, Any]]:
+        return store.get_hitl_requests(session_id=session_id, status=status)
+
+    @app.post("/api/hitl")
+    def api_hitl_action(payload: Dict[str, Any]) -> Dict[str, Any]:
+        sid = payload.get("session_id", "unknown")
+        rid = payload.get("request_id")
+        action = payload.get("action")
+        comment = payload.get("comment")
+        if not rid or action not in {"approve", "reject"}:
+            return {"success": False, "error": "Invalid payload"}
+        ok = store.update_hitl_request(sid, rid, "approved" if action == "approve" else "rejected", comment=comment)
+        return {"success": ok}
+
     if streaming_manager is not None:
         @app.websocket("/ws/live")
         async def ws_live(websocket: WebSocket) -> None:

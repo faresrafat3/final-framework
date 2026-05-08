@@ -21,6 +21,7 @@ from ..layers.multi_agent import MultiAgentCoordinator
 from ..layers.safety_governance import SafetyGovernance
 from ..layers.cognitive_immune import CognitiveImmuneSystem
 from ..layers.neuro_symbolic import NeuroSymbolicMandate
+from ..layers.hitl import HitlGate, FeedbackCollector, EscalationPolicy, FeedbackLoopEngine
 from ..state import AIOState
 from .nodes import (
     node_context_ingest,
@@ -70,6 +71,11 @@ from .nodes import (
     node_neuro_symbolic_ground,
     node_neuro_symbolic_verify,
     node_neuro_symbolic_synthesize,
+    node_hitl_gate,
+    node_hitl_wait,
+    node_feedback_collect,
+    node_escalation_policy,
+    node_feedback_loop,
 )
 from .routing import (
     route_memory_confidence,
@@ -85,6 +91,8 @@ from .routing import (
     route_self_evolution,
     route_neuro_symbolic,
     route_post_neuro_symbolic,
+    route_hitl,
+    route_escalation_policy,
 )
 
 
@@ -254,6 +262,12 @@ def build_aio_graph(
     immune = CognitiveImmuneSystem(cfg.cognitive_immune, obs)
     ns_mandate = NeuroSymbolicMandate(cfg.neuro_symbolic, obs)
 
+    # HITL nodes
+    hitl_gate = HitlGate(cfg.hitl, obs)
+    feedback_collector = FeedbackCollector(cfg.hitl, obs)
+    escalation_policy = EscalationPolicy(cfg.hitl, obs)
+    feedback_loop_engine = FeedbackLoopEngine(cfg.hitl, obs)
+
     _add("self_evolution_analyze", lambda s: node_self_evolution_analyze(s, self_evol))
     _add("multi_agent_decompose", lambda s: node_multi_agent_decompose(s, multi_agent))
     _add("multi_agent_dispatch", lambda s: node_multi_agent_dispatch(s, multi_agent))
@@ -268,6 +282,13 @@ def build_aio_graph(
     _add("neuro_symbolic_ground", lambda s: node_neuro_symbolic_ground(s, ns_mandate))
     _add("neuro_symbolic_verify", lambda s: node_neuro_symbolic_verify(s, ns_mandate))
     _add("neuro_symbolic_synthesize", lambda s: node_neuro_symbolic_synthesize(s, ns_mandate))
+
+    # HITL graph nodes
+    _add("hitl_gate", lambda s: node_hitl_gate(s, hitl_gate))
+    _add("hitl_wait", node_hitl_wait)
+    _add("feedback_collect", lambda s: node_feedback_collect(s, feedback_collector, mem))
+    _add("escalation_policy_eval", lambda s: node_escalation_policy(s, escalation_policy))
+    _add("feedback_loop_replay", lambda s: node_feedback_loop(s, feedback_loop_engine, planning=planning, toolopt=toolopt))
 
     # Finalize
     _add("finalize_output", node_finalize_output)
@@ -328,7 +349,9 @@ def build_aio_graph(
     # Tool-use optimization -> execution -> analytics
     graph.add_conditional_edges("gstep_evaluate", route_gstep)
     graph.add_edge("hdpo_optimize", "jtpro_optimize")
-    graph.add_edge("jtpro_optimize", "execute_action")
+    graph.add_edge("jtpro_optimize", "hitl_gate")
+    graph.add_conditional_edges("hitl_gate", lambda s: route_hitl(s, cfg))
+    graph.add_edge("hitl_wait", END)
     graph.add_edge("execute_action", "analytics_record")
     graph.add_conditional_edges("analytics_record", route_post_execution)
 
@@ -341,7 +364,10 @@ def build_aio_graph(
 
     # Post-finalize reflection pipeline
     graph.add_conditional_edges("finalize_output", lambda s: route_post_finalize(s, cfg))
+    graph.add_edge("feedback_collect", "self_evolution_analyze")
     graph.add_edge("self_evolution_analyze", "cognitive_immune_scan")
     graph.add_conditional_edges("cognitive_immune_scan", lambda s: route_self_evolution(s, cfg))
+    graph.add_edge("escalation_policy_eval", "feedback_loop_replay")
+    graph.add_edge("feedback_loop_replay", END)
 
     return graph.compile()

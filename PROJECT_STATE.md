@@ -24,6 +24,7 @@
 | 6 | Benchmark Suite | `BenchmarkRunner` | `BenchmarkConfig` | — | — | — | `test_benchmark_collector.py`, `test_benchmark_reporter.py`, `test_benchmark_regression.py`, `test_benchmark_suite.py` | ✅ Complete |
 | — | Packaging & Distribution | — | — | — | — | — | CI / smoke tests | ✅ Complete |
 | — | Streaming & Event Layer | `StreamingManager` | `StreamingConfig` | — | `_wrap_node` | — | `test_streaming_manager.py`, `test_streaming_transports.py`, `test_streaming_store.py`, `test_streaming_graph.py`, `test_cli_streaming.py` | ✅ Complete |
+| 9 | HITL & Feedback Loop | `HitlGate`, `FeedbackCollector`, `EscalationPolicy`, `FeedbackLoopEngine` | `HitlConfig` | `hitl_status`, `hitl_request`, `human_feedback`, `feedback_suggestions`, `escalation_reason`, `pending_feedback` | `node_hitl_gate`, `node_hitl_wait`, `node_feedback_collect`, `node_escalation_policy`, `node_feedback_loop` | `route_hitl`, `route_escalation_policy` | `test_hitl.py`, `test_governance_dashboard.py` (HITL), `test_hitl_graph.py` | ✅ Complete |
 
 ---
 
@@ -60,6 +61,9 @@
 | `tests/unit/test_streaming_store.py` | EventStore memory backend, Redis fallback, replay with trace_id filter | 8 |
 | `tests/integration/test_streaming_graph.py` | Graph compilation with/without streaming_manager, START/END event coverage | 8 |
 | `tests/unit/test_cli_streaming.py` | CLI `--stream` NDJSON output, `--no-stream` single JSON output | 8 |
+| `tests/unit/test_hitl.py` | HitlGate gating, FeedbackCollector ingestion, EscalationPolicy thresholds, FeedbackLoopEngine replay | 9 |
+| `tests/unit/test_governance_dashboard.py` (HITL) | Dashboard `/hitl` HTML, `/api/hitl` list/filter/approve/reject | 9 |
+| `tests/integration/test_hitl_graph.py` | Graph routing with HITL enabled: pending wait, preapproved proceed, rejected escalate, immune alert escalation, feedback loop injection | 9 |
 
 ---
 
@@ -77,12 +81,13 @@
 10. **`requirements.txt` is deprecated**; development installs should use `pip install -e ".[dev]"`.
 11. **Docker multi-arch builds** (`linux/amd64`, `linux/arm64`) require Docker Buildx; local builds default to host architecture.
 12. ~~CLI commands do not yet have dedicated unit tests~~ ✅ Done — `tests/unit/test_cli_streaming.py` covers NDJSON streaming output.
+13. **HITL wait requires external re-invocation**: When `hitl_status` is `"pending"`, the graph ends at `hitl_wait` → `END`. The external operator must approve via the dashboard/API and re-invoke the graph with `hitl_status="approved"`. This is deterministic and avoids LangGraph async interruption complexity.
 
 ---
 
 ## 4. In-Flight Work
 
-> Priority 8 is complete.
+> Priority 9 is complete.
 
 ---
 
@@ -99,6 +104,7 @@
 9. ~~Benchmark Suite~~ ✅ Done — `aio/benchmark/` subpackage with collector, runner, reporters, regression detector, and CLI.
 10. ~~Packaging & Distribution~~ ✅ Done — `pyproject.toml`, CLI, Dockerfile, CI/CD workflows.
 11. ~~Real-Time Cognitive Streaming~~ ✅ Done — `aio/streaming/` package with manager, transports, store, graph integration, CLI `--stream`, dashboard `/ws/live`.
+12. ~~Human-in-the-Loop & Feedback Loop~~ ✅ Done — `HitlGate`, `FeedbackCollector`, `EscalationPolicy`, `FeedbackLoopEngine`, `HitlConfig`, dashboard `/hitl` queue, graph wiring, tests.
 
 > Next priorities to be determined.
 
@@ -173,9 +179,17 @@ requires-python = ">=3.10"
 | `STREAMING_TRANSPORT` | `memory` | Transport backend — `memory`, `sse`, or `websocket` |
 | `STREAMING_EVENT_PERSISTENCE` | `false` | Optional event persistence — `false` or `redis` for replay |
 | `STREAMING_MAX_BUFFER_EVENTS` | `1000` | Maximum events retained in the in-memory ring buffer |
+| `HITL_ENABLE` | `false` | Master switch for Human-in-the-Loop gating and feedback loops |
+| `HITL_DESTRUCTIVE_PATTERNS` | — | JSON array of regex strings (configurable via `HitlConfig`) |
+| `HITL_TIMEOUT_SECONDS` | `300` | Timeout before pending HITL request auto-rejects |
+| `HITL_AUTO_REJECT_ON_TIMEOUT` | `true` | Auto-reject pending requests on timeout |
+| `HITL_ESCALATION_ON_SAFETY_VIOLATION` | `true` | Auto-escalate when safety violations exist |
+| `HITL_ESCALATION_ON_IMMUNE_ALERT` | `true` | Auto-escalate when immune status is ALERT |
+| `HITL_ANOMALY_THRESHOLD_FOR_ESCALATION` | `0.8` | Anomaly score that triggers escalation |
+| `HITL_FEEDBACK_REPLAY_MAX_CORRECTIONS` | `5` | Max corrections to replay per turn |
 
 All flags are env-driven and checked at config initialization time.
 
 ---
 
-*Last updated: Post-PR #17 — Real-Time Cognitive Streaming & Event Layer (Priority 8)*
+*Last updated: Post-PR #18 — Human-in-the-Loop & Feedback Loop Integration (Priority 9)*

@@ -1,5 +1,47 @@
 # Changelog
 
+## [9.0.0] — 2026-05-08
+
+Merged via PR #18.
+
+### Added
+- **Human-in-the-Loop & Feedback Loop Integration — Priority 9**
+  - `aio/layers/hitl.py` with four cohesive classes:
+    - `HitlGate` — stateful pending-request registry with threading lock; `check()`, `approve()`, `reject()`, `get_pending()`
+    - `FeedbackCollector` — `collect()` appends to state `human_feedback`; `ingest_to_memory()` creates synthetic context-window entries and delegates to `MemoryBridge.encode()`
+    - `EscalationPolicy` — `evaluate()` triggers on safety violations and immune alert/anomaly thresholds; sets `escalation_reason`, `failure_state="FAILED"`, clears `output`, sets `error`
+    - `FeedbackLoopEngine` — `record_correction()` and `replay()`; matches corrections against current intent and optionally mutates `plan` or `metrics` when planning/toolopt instances are passed
+  - `HitlConfig` Pydantic model with env-driven defaults: `HITL_ENABLE`, `HITL_DESTRUCTIVE_PATTERNS`, `HITL_TIMEOUT_SECONDS`, `HITL_AUTO_REJECT_ON_TIMEOUT`, `HITL_ESCALATION_ON_SAFETY_VIOLATION`, `HITL_ESCALATION_ON_IMMUNE_ALERT`, `HITL_ANOMALY_THRESHOLD_FOR_ESCALATION`, `HITL_FEEDBACK_REPLAY_MAX_CORRECTIONS`
+  - `AIOState` additive fields: `hitl_status`, `hitl_request`, `human_feedback`, `feedback_suggestions`, `escalation_reason`, `pending_feedback`
+  - Graph wiring (zero breaking changes):
+    - Pre-execution gate: `jtpro_optimize -> hitl_gate -> (route_hitl) -> execute_action | hitl_wait | escalate`
+    - Post-finalize pipeline: `finalize_output -> feedback_collect -> self_evolution_analyze -> cognitive_immune_scan -> escalation_policy_eval -> feedback_loop_replay -> END`
+  - Governance Dashboard HITL queue:
+    - `AuditStore` methods: `record_hitl_request()`, `get_hitl_requests()`, `update_hitl_request()`
+    - `/hitl` HTML page (`hitl.html`) with pending/all request tables and approve/reject forms
+    - `/api/hitl` GET (list/filter) and POST (approve/reject) endpoints
+  - `SelfEvolutionLayer.analyze()` now includes `human_feedback_count` in the performance snapshot
+  - Comprehensive test suite:
+    - `tests/unit/test_hitl.py` — gate logic, feedback ingestion, escalation thresholds, feedback replay, thread-safety smoke test
+    - `tests/unit/test_governance_dashboard.py` — dashboard HITL HTML, API list/filter, approve/reject
+    - `tests/integration/test_hitl_graph.py` — graph routing: pending wait, preapproved proceed, rejected escalate, immune alert escalation, feedback loop injection
+
+### Changed
+- `AIOConfig` now includes `hitl: HitlConfig`
+- `aio/__init__.py` and `aio_framework.py` export all new HITL symbols, config, node functions, and routing functions
+
+### Metrics Targets
+| Metric | Target | Status |
+|--------|--------|--------|
+| HITL gate coverage (enabled/disabled/destructive) | 100% | All paths unit tested |
+| Feedback ingestion and memory bridge delegation | 100% | Mocked and graceful-failure tested |
+| Escalation policy threshold triggers | 100% | Safety violation, immune alert, anomaly score paths tested |
+| Feedback loop replay with plan mutation | 100% | Intent matching and plan prefix injection tested |
+| Dashboard HITL queue API | 100% | List, filter, approve, reject tested |
+| Graph integration backward compatibility | 100% | `build_aio_graph(AIOConfig())` unchanged when HITL is disabled (default) |
+
+---
+
 ## [8.0.0] — 2026-05-07
 
 Merged via PR #17.

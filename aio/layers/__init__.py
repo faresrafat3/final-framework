@@ -38,6 +38,12 @@ from .neuro_symbolic import (
     KnowledgeGraph,
     FormalVerifier,
 )
+from .hitl import (
+    HitlGate,
+    FeedbackCollector,
+    EscalationPolicy,
+    FeedbackLoopEngine,
+)
 
 __all__ = [
     "ObservabilityLayer",
@@ -81,4 +87,8 @@ __all__ = [
     "SymbolicRule",
     "KnowledgeGraph",
     "FormalVerifier",
+    "HitlGate",
+    "FeedbackCollector",
+    "EscalationPolicy",
+    "FeedbackLoopEngine",
 ]

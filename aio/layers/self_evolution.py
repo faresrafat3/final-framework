@@ -39,6 +39,7 @@ class SelfEvolutionLayer:
                 "success": state.get("error") is None and state.get("failure_state") == "HEALTHY",
                 "memory_confidence": state.get("memory_confidence", 0.0),
                 "verification_score": state.get("verification_result", {}).get("ensemble_score", 0.0),
+                "human_feedback_count": len(state.get("human_feedback") or []),
             }
             self._snapshots.append(snapshot)
             state["performance_snapshot"] = snapshot
