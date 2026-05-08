@@ -82,12 +82,17 @@
 11. **Docker multi-arch builds** (`linux/amd64`, `linux/arm64`) require Docker Buildx; local builds default to host architecture.
 12. ~~CLI commands do not yet have dedicated unit tests~~ ✅ Done — `tests/unit/test_cli_streaming.py` covers NDJSON streaming output.
 13. **HITL wait requires external re-invocation**: When `hitl_status` is `"pending"`, the graph ends at `hitl_wait` → `END`. The external operator must approve via the dashboard/API and re-invoke the graph with `hitl_status="approved"`. This is deterministic and avoids LangGraph async interruption complexity.
+14. **Day 1 complete but embedding engine is dimension-agnostic**: `RealEmbeddingEngine` produces 384-dim vectors for `all-MiniLM-L6-v2`, but `PostgresBackend` (Day 2) must match this dimension in pgvector schema. Coordinate dimensions between engine and backend during Day 2 implementation.
 
 ---
 
 ## 4. In-Flight Work
 
-> Priority 9 is complete.
+> Priority 10 — Memory Upgrade (4-Day Plan)
+> - Day 1: Real Embedding Engine ✅ Complete — PR #25
+> - Day 2: Persistent Storage (PostgreSQL + pgvector) — Pending
+> - Day 3: True Memory Lifecycle (LLM consolidation, Ebbinghaus forgetting) — Pending
+> - Day 4: Integration & Tool Exposure (store_memory, recall_memory tools) — Pending
 
 ---
 
@@ -105,8 +110,10 @@
 10. ~~Packaging & Distribution~~ ✅ Done — `pyproject.toml`, CLI, Dockerfile, CI/CD workflows.
 11. ~~Real-Time Cognitive Streaming~~ ✅ Done — `aio/streaming/` package with manager, transports, store, graph integration, CLI `--stream`, dashboard `/ws/live`.
 12. ~~Human-in-the-Loop & Feedback Loop~~ ✅ Done — `HitlGate`, `FeedbackCollector`, `EscalationPolicy`, `FeedbackLoopEngine`, `HitlConfig`, dashboard `/hitl` queue, graph wiring, tests.
-
-> Next priorities to be determined.
+13. ~~Day 1: Real Embedding Engine~~ ✅ Done — extracted `RealEmbeddingEngine`/`PseudoEmbeddingEngine` into `aio/memory/embeddings.py` behind `ENABLE_REAL_EMBEDDINGS` flag with graceful fallback.
+14. Day 2: Persistent Storage with pgvector — `PostgresBackend` needs vector(384) columns and pgvector extension for ANN search.
+15. Day 3: True Memory Lifecycle — LLM-based episodic consolidation, adaptive Ebbinghaus forgetting curve.
+16. Day 4: Integration & Tool Exposure — `store_memory` and `recall_memory` tools registered in ToolGate.
 
 ---
 
@@ -192,4 +199,4 @@ All flags are env-driven and checked at config initialization time.
 
 ---
 
-*Last updated: Post-PR #21 — Human-in-the-Loop & Feedback Loop Integration (Priority 9)*
+*Last updated: Post-PR #25 — Day 1 Memory Upgrade (Priority 10)*
