@@ -2,7 +2,7 @@
 
 ## [9.0.0] — 2026-05-08
 
-Merged via PR #18.
+Merged via PR #21.
 
 ### Added
 - **Human-in-the-Loop & Feedback Loop Integration — Priority 9**
@@ -376,5 +376,5 @@ Merged via PR #14.
 - Vector embeddings use deterministic pseudo-vectors for standalone operation; replace with real embedding model for production retrieval accuracy.
 - LangSmith integration requires valid API key; disabled automatically if unavailable.
 - Docker sandbox requires local Docker socket access; falls back to error if unavailable.
-- Plan generation is heuristic-based; full LLM-based planning deferred to Priority 2.
+- ~~Plan generation is heuristic-based~~ ✅ Done — LLM-based planning available behind `ENABLE_LLM_PLANNING` flag with graceful fallback to heuristics (see Priority 4).
 - Prometheus HTTP server binds to all interfaces; configure firewall rules for production.
