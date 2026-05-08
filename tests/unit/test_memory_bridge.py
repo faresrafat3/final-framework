@@ -10,6 +10,8 @@ from aio_framework import (
     ObservabilityConfig,
     make_initial_state,
     SENTENCE_TRANSFORMERS_AVAILABLE,
+    PseudoEmbeddingEngine,
+    RealEmbeddingEngine,
 )
 
 
@@ -110,26 +112,31 @@ class TestMemoryBridge:
         state = mem.retrieve(state)
         assert len(state["working_memory"]) <= mem.config.retrieval_top_k
 
+    def test_memory_bridge_uses_embedding_engine(self, mem):
+        assert hasattr(mem, "_embedding_engine")
+        engine = mem._embedding_engine
+        v1 = engine.embed("delegation test")
+        v2 = mem._embed("delegation test")
+        assert v1 == v2
+
     def test_real_embedding_when_enabled_and_available(self):
         obs = ObservabilityLayer(ObservabilityConfig(log_level="DEBUG", prometheus_port=0))
-        mock_model = MagicMock()
-        mock_model.encode.return_value = MagicMock(
-            dot=lambda *args: 1.0,
-            __iter__=lambda self: iter([1.0, 0.0, 0.0, 0.0]),
-        )
-        with patch.dict("aio_framework.__dict__", {"SentenceTransformer": lambda name: mock_model, "SENTENCE_TRANSFORMERS_AVAILABLE": True}):
-            cfg = MemoryConfig(
-                epiphany_ttl_seconds=1,
-                consolidation_batch_size=2,
-                retrieval_top_k=3,
-                importance_threshold=0.3,
-                forget_ttl_seconds=2,
-                use_real_embeddings=True,
-            )
-            mem = MemoryBridge(cfg, obs)
-            vec = mem._embed("hello")
-            mock_model.encode.assert_called_once()
-            assert abs(sum(x * x for x in vec) - 1.0) < 1e-6
+        mock_engine = MagicMock()
+        mock_engine.embed.return_value = [1.0, 0.0, 0.0, 0.0]
+        with patch("aio.memory.embeddings.SENTENCE_TRANSFORMERS_AVAILABLE", True):
+            with patch("aio.memory.embeddings.RealEmbeddingEngine", return_value=mock_engine):
+                cfg = MemoryConfig(
+                    epiphany_ttl_seconds=1,
+                    consolidation_batch_size=2,
+                    retrieval_top_k=3,
+                    importance_threshold=0.3,
+                    forget_ttl_seconds=2,
+                    use_real_embeddings=True,
+                )
+                mem = MemoryBridge(cfg, obs)
+                vec = mem._embed("hello")
+                mock_engine.embed.assert_called_once_with("hello")
+                assert vec == [1.0, 0.0, 0.0, 0.0]
 
     def test_fallback_to_pseudo_when_disabled(self, mem):
         v1 = mem._embed("fallback")
@@ -139,7 +146,7 @@ class TestMemoryBridge:
 
     def test_fallback_when_real_enabled_but_import_missing(self):
         obs = ObservabilityLayer(ObservabilityConfig(log_level="DEBUG", prometheus_port=0))
-        with patch("aio_framework.SENTENCE_TRANSFORMERS_AVAILABLE", False):
+        with patch("aio.memory.embeddings.SENTENCE_TRANSFORMERS_AVAILABLE", False):
             cfg = MemoryConfig(
                 epiphany_ttl_seconds=1,
                 consolidation_batch_size=2,
@@ -150,23 +157,25 @@ class TestMemoryBridge:
             )
             mem = MemoryBridge(cfg, obs)
             vec = mem._embed("hello")
-            assert mem._embedding_model is None
+            assert isinstance(mem._embedding_engine, PseudoEmbeddingEngine)
             assert abs(sum(x * x for x in vec) - 1.0) < 1e-6
 
     def test_fallback_when_model_load_fails(self):
         obs = ObservabilityLayer(ObservabilityConfig(log_level="DEBUG", prometheus_port=0))
-        def _raise(*args, **kwargs):
-            raise RuntimeError("load failed")
-        with patch.dict("aio_framework.__dict__", {"SentenceTransformer": _raise, "SENTENCE_TRANSFORMERS_AVAILABLE": True}):
-            cfg = MemoryConfig(
-                epiphany_ttl_seconds=1,
-                consolidation_batch_size=2,
-                retrieval_top_k=3,
-                importance_threshold=0.3,
-                forget_ttl_seconds=2,
-                use_real_embeddings=True,
-            )
-            mem = MemoryBridge(cfg, obs)
-            vec = mem._embed("hello")
-            assert mem._embedding_model is None
-            assert abs(sum(x * x for x in vec) - 1.0) < 1e-6
+        with patch("aio.memory.embeddings.SENTENCE_TRANSFORMERS_AVAILABLE", True):
+            with patch(
+                "aio.memory.embeddings.RealEmbeddingEngine.__init__",
+                side_effect=RuntimeError("load failed"),
+            ):
+                cfg = MemoryConfig(
+                    epiphany_ttl_seconds=1,
+                    consolidation_batch_size=2,
+                    retrieval_top_k=3,
+                    importance_threshold=0.3,
+                    forget_ttl_seconds=2,
+                    use_real_embeddings=True,
+                )
+                mem = MemoryBridge(cfg, obs)
+                vec = mem._embed("hello")
+                assert isinstance(mem._embedding_engine, PseudoEmbeddingEngine)
+                assert abs(sum(x * x for x in vec) - 1.0) < 1e-6

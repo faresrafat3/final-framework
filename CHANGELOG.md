@@ -1,5 +1,38 @@
 # Changelog
 
+## [9.1.0] — 2026-05-08
+
+### Added
+- **Memory Bridge Embedding Subsystem — Day 1**
+  - `aio/memory/embeddings.py` with four cohesive classes:
+    - `BaseEmbeddingEngine` (ABC) — `embed(text: str) -> List[float]` contract
+    - `RealEmbeddingEngine` — wraps `sentence-transformers` `SentenceTransformer`, configurable model name (default `all-MiniLM-L6-v2`), handles normalization, dimension=384
+    - `PseudoEmbeddingEngine` — deterministic hash-based fallback producing 64-dim normalized vectors (preserves pre-refactor behavior)
+    - `EmbeddingEngineFactory.create(config: MemoryConfig)` — returns `RealEmbeddingEngine` if `ENABLE_REAL_EMBEDDINGS=true` AND `sentence-transformers` is available, otherwise `PseudoEmbeddingEngine` with a clear warning log
+  - `aio/memory/__init__.py` package marker with public re-exports
+  - `tests/unit/test_memory_embeddings.py` — determinism, normalization, factory disabled/enabled/unavailable paths, load-failure fallback, real dimension verification
+
+### Changed
+- `aio/layers/memory.py` refactored:
+  - Removed inline `sys.modules.get("aio_framework")` hack and inline `_embed` logic (~lines 42-53 and ~lines 96-106)
+  - `__init__` now delegates engine creation to `EmbeddingEngineFactory.create(config)`
+  - `_embed()` delegates to `self._embedding_engine.embed(content)`
+- `aio/__init__.py` and `aio_framework.py` export all new embedding symbols
+- `SESSION_START.md` key file map updated with `aio/memory/embeddings.py`
+
+### Metrics Targets
+| Metric | Target | Status |
+|--------|--------|--------|
+| Pseudo embedding determinism | 100% | Unit tested |
+| Pseudo embedding normalization | 100% | Unit tested |
+| Factory fallback when disabled | 100% | Unit tested |
+| Factory fallback when unavailable | 100% | Unit tested |
+| Factory fallback on load failure | 100% | Unit tested |
+| Real embedding dimensions (if available) | 100% | Unit tested |
+| MemoryBridge backward compatibility | 100% | All existing tests pass unchanged |
+
+---
+
 ## [9.0.0] — 2026-05-08
 
 Merged via PR #21.

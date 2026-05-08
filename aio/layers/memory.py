@@ -4,12 +4,11 @@ import hashlib
 import logging
 import random
 import re
-import sys
 import time
 from typing import Any, Dict, List, Optional, Tuple
 
-from ..config.deps import SENTENCE_TRANSFORMERS_AVAILABLE
 from ..config.models import MemoryConfig
+from ..memory.embeddings import EmbeddingEngineFactory
 from .observability import ObservabilityLayer
 from ..state import AIOState
 from .memory_backends import (
@@ -38,18 +37,7 @@ class MemoryBridge:
         self._episodic: Dict[str, Dict[str, Any]] = self._backend.episodic
         self._long_term: Dict[str, Dict[str, Any]] = self._backend.long_term
         self._keyword_index: Dict[str, List[str]] = self._backend.keyword_index
-        self._embedding_model: Optional[Any] = None
-        _st_available = SENTENCE_TRANSFORMERS_AVAILABLE
-        _st_cls = None
-        mod = sys.modules.get("aio_framework")
-        if mod is not None:
-            _st_available = getattr(mod, "SENTENCE_TRANSFORMERS_AVAILABLE", _st_available)
-            _st_cls = getattr(mod, "SentenceTransformer", None)
-        if config.use_real_embeddings and _st_available and _st_cls is not None:
-            try:
-                self._embedding_model = _st_cls(config.embedding_model_name)
-            except Exception as exc:  # pragma: no cover
-                logging.warning("Failed to load embedding model '%s': %s. Falling back to pseudo-embeddings.", config.embedding_model_name, exc)
+        self._embedding_engine = EmbeddingEngineFactory.create(config)
 
     def _create_backend(self, config: MemoryConfig) -> BaseMemoryBackend:
         backend_type = config.backend_type.lower()
@@ -95,15 +83,7 @@ class MemoryBridge:
 
     def _embed(self, content: str) -> List[float]:
         """Return real or pseudo embedding depending on config and availability."""
-        if self._embedding_model is not None:
-            vec = self._embedding_model.encode(content, convert_to_numpy=True)
-            norm = float(vec.dot(vec)) ** 0.5 or 1.0
-            return [float(v) / norm for v in vec]
-        h = int(hashlib.sha256(content.encode()).hexdigest(), 16)
-        random.seed(h)
-        vec = [random.random() for _ in range(64)]
-        norm = sum(v * v for v in vec) ** 0.5 or 1.0
-        return [v / norm for v in vec]
+        return self._embedding_engine.embed(content)
 
     def _cosine_similarity(self, a: List[float], b: List[float]) -> float:
         dot = sum(x * y for x, y in zip(a, b))
