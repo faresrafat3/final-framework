@@ -53,16 +53,17 @@ class SymbolicEngine:
         """Run forward chaining and return derived facts with provenance."""
         derived: List[Dict[str, Any]] = []
         for _ in range(max_depth):
-            progressed = False
+            new_derived: List[Dict[str, Any]] = []
             for rule in self.rules:
                 if all(p.lower().strip() in self._facts for p in rule.premises):
                     conc = rule.conclusion.lower().strip()
                     if conc not in self._facts:
-                        self._facts.add(conc)
-                        derived.append({"rule": rule.name, "conclusion": conc, "weight": rule.weight})
-                        progressed = True
-            if not progressed:
+                        new_derived.append({"rule": rule.name, "conclusion": conc, "weight": rule.weight})
+            if not new_derived:
                 break
+            for d in new_derived:
+                self._facts.add(d["conclusion"])
+                derived.append(d)
         return {"facts": sorted(self._facts), "derived": derived}
 
 
@@ -135,13 +136,14 @@ class FormalVerifier:
         checks = []
         contradictions = []
         lowered_steps = [s.lower() for s in steps]
-        for i, a in enumerate(lowered_steps):
-            for j, b in enumerate(lowered_steps):
+        labels = [re.split(r"\s+before\s+", s)[0].strip() for s in lowered_steps if "before" in s]
+        for i, a_label in enumerate(labels):
+            for j, b_label in enumerate(labels):
                 if i < j:
-                    forward = any(f"{a} before {b}" in s for s in lowered_steps)
-                    reverse = any(f"{b} before {a}" in s for s in lowered_steps)
+                    forward = any(f"{a_label} before {b_label}" in s for s in lowered_steps)
+                    reverse = any(f"{b_label} before {a_label}" in s for s in lowered_steps)
                     if forward and reverse:
-                        contradictions.append((a, b))
+                        contradictions.append((a_label, b_label))
         checks.append({
             "rule": "temporal_consistency",
             "passed": len(contradictions) == 0,
