@@ -62,7 +62,7 @@
 | Priority 7 | Packaging & Distribution | Complete | CI + Smoke |
 | Priority 8 | Real-Time Cognitive Streaming & Event Layer | Complete | Unit + Integration |
 | Priority 9 | Human-in-the-Loop & Feedback Loop | Complete | Unit + Integration |
-| Priority 10 | Memory Upgrade (4-Day: Real Embeddings, Persistent Storage, Lifecycle, Tool Exposure) | Day 1 Complete | Unit + Integration |
+| Priority 10 | Memory Upgrade (4-Day: Real Embeddings, Persistent Storage, Lifecycle, Tool Exposure) | Day 1 & 2 Complete | Unit + Integration |
 
 ---
 
@@ -118,6 +118,9 @@
 | `aio/memory/` | Memory subpackage: embedding engines and future storage/lifecycle modules | — |
 | `aio/memory/embeddings.py` | `BaseEmbeddingEngine`, `RealEmbeddingEngine`, `PseudoEmbeddingEngine`, `EmbeddingEngineFactory` | ~120 |
 | `tests/unit/test_memory_embeddings.py` | Unit tests for embedding engines (determinism, normalization, factory, dimensions) | — |
+| `aio/layers/memory_backends.py` | `BaseMemoryBackend`, `InMemoryBackend`, `RedisBackend`, `PostgresBackend` (vector-native with pgvector), `HybridBackend` | ~530 |
+| `tests/unit/test_pgvector_backend.py` | PostgresBackend schema, vector/hybrid search, degradation, connection failure | — |
+| `tests/integration/test_memory_pgvector.py` | Full memory flow with real Postgres + pgvector (skipped if unavailable) | — |
 
 ---
 
@@ -177,6 +180,9 @@ HITL_ENABLE=true aio run "delete all files"
 
 # HITL test suite
 pytest tests/unit/test_hitl.py tests/unit/test_governance_dashboard.py tests/integration/test_hitl_graph.py -v
+
+# pgvector backend test suite
+pytest tests/unit/test_pgvector_backend.py -v
 ```
 
 ---
@@ -241,4 +247,4 @@ If context is lost between sessions:
 
 ---
 
-*Last updated: Post-PR #25 — Day 1 Memory Upgrade (Priority 10)*
+*Last updated: Post-PR #26 — Day 2 Memory Upgrade (Priority 10)*

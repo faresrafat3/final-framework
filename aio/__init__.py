@@ -79,6 +79,7 @@ from .config.deps import (
     HTTPX_AVAILABLE,
     PSUTIL_AVAILABLE,
     JINJA2_AVAILABLE,
+    PGVECTOR_AVAILABLE,
 )
 from .layers.observability import ObservabilityLayer, _NullContext
 from .layers.context import ContextManager
@@ -136,6 +137,11 @@ from .memory.embeddings import (
     RealEmbeddingEngine,
     PseudoEmbeddingEngine,
     EmbeddingEngineFactory,
+)
+from .memory.lifecycle import (
+    LLMConsolidator,
+    EbbinghausForgettingCurve,
+    MemoryLifecycleEngine,
 )
 from .state import AIOState, make_initial_state
 from .graph.builder import build_aio_graph
@@ -312,6 +318,7 @@ __all__ = [
     "HTTPX_AVAILABLE",
     "PSUTIL_AVAILABLE",
     "JINJA2_AVAILABLE",
+    "PGVECTOR_AVAILABLE",
     "ObservabilityLayer",
     "_NullContext",
     "ContextManager",
@@ -367,6 +374,9 @@ __all__ = [
     "RealEmbeddingEngine",
     "PseudoEmbeddingEngine",
     "EmbeddingEngineFactory",
+    "LLMConsolidator",
+    "EbbinghausForgettingCurve",
+    "MemoryLifecycleEngine",
     "AuditStore",
     "create_dashboard_app",
     "BenchmarkConfig",

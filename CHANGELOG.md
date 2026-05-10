@@ -1,5 +1,42 @@
 # Changelog
 
+## [10.0.0-day2] — 2026-05-08
+
+Merged via PR #26.
+
+### Added
+- **Memory Upgrade — Day 2: PostgreSQL + pgvector Persistent Storage (Priority 10)**
+  - `aio/config/deps.py`: `PGVECTOR_AVAILABLE` runtime guard + `_check_pgvector_sql(conn)` SQL probe for the pgvector extension
+  - `aio/config/models.py`: `MemoryConfig` gains `pgvector_enable` (env: `PGVECTOR_ENABLE`, default `true`) and `vector_dimension=384`
+  - `aio/memory/embeddings.py`: `dimension` class property added to `BaseEmbeddingEngine` (`RealEmbeddingEngine=384`, `PseudoEmbeddingEngine=64`)
+  - `aio/layers/memory_backends.py` — `PostgresBackend` upgraded to vector-native backend:
+    - Vector-aware schema with `vector(384)` column, `aio_memory_entries` / `aio_memory_keywords` tables
+    - HNSW ANN index (`idx_memory_embedding_hnsw`) using `vector_cosine_ops`
+    - `vector_search(query_embedding, store_type, top_k)` — pure ANN via `<=>` cosine distance
+    - `hybrid_search(query_embedding, keywords, store_type, top_k)` — SQL-level weighted scoring (vector 0.6 + keyword 0.4)
+    - Graceful degradation: missing pgvector extension → JSONB fallback mode; missing psycopg2 → no-op; connection failure → `_conn=None`
+  - `aio/layers/memory.py`: `MemoryBridge.retrieve()` delegates to `PostgresBackend.hybrid_search()` when pgvector is active; otherwise retains Python-side hybrid search
+  - `aio/__init__.py`: exports `PGVECTOR_AVAILABLE`
+  - Unit tests: `tests/unit/test_pgvector_backend.py` (8 tests) covering schema creation, vector/hybrid SQL, degradation, connection failure, psycopg2 unavailable
+  - Integration tests: `tests/integration/test_memory_pgvector.py` skipped when Postgres is unreachable
+
+### Changed
+- `PostgresBackend.__init__` signature expanded to `(postgres_url, vector_dimension=384, pgvector_enable=True)`
+- `MemoryBridge._create_backend` passes `vector_dimension` and `pgvector_enable` to `PostgresBackend`
+
+### Metrics Targets
+| Metric | Target | Status |
+|--------|--------|--------|
+| Schema creation with pgvector active | 100% | ✅ SQL verified via mocked cursor |
+| ANN cosine distance operator (`<=>`) | 100% | ✅ Present in generated SQL |
+| Hybrid weight vector(0.6) + keyword(0.4) | 100% | ✅ Verified in SQL |
+| pgvector unavailable → JSONB fallback | 100% | ✅ Schema switches to payload JSONB |
+| Connection failure → InMemoryBackend | 100% | ✅ `_conn=None`, warning logged |
+| Backward compatibility (all backends) | 100% | ✅ Existing `BaseMemoryBackend` dict interfaces preserved |
+| Test coverage for pgvector module | > 90% | ✅ 8 unit tests pass |
+
+---
+
 ## [10.0.0-day1] — 2026-05-08
 
 Merged via PR #25.

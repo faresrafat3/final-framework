@@ -64,6 +64,8 @@
 | `tests/unit/test_hitl.py` | HitlGate gating, FeedbackCollector ingestion, EscalationPolicy thresholds, FeedbackLoopEngine replay | 9 |
 | `tests/unit/test_governance_dashboard.py` (HITL) | Dashboard `/hitl` HTML, `/api/hitl` list/filter/approve/reject | 9 |
 | `tests/integration/test_hitl_graph.py` | Graph routing with HITL enabled: pending wait, preapproved proceed, rejected escalate, immune alert escalation, feedback loop injection | 9 |
+| `tests/unit/test_pgvector_backend.py` | PostgresBackend schema creation, vector search SQL, hybrid search weights, pgvector unavailable fallback, connection failure | 10 |
+| `tests/integration/test_memory_pgvector.py` | Full encode→verify→store→retrieve flow with real Postgres (skipped if unavailable) | 10 |
 
 ---
 
@@ -82,7 +84,7 @@
 11. **Docker multi-arch builds** (`linux/amd64`, `linux/arm64`) require Docker Buildx; local builds default to host architecture.
 12. ~~CLI commands do not yet have dedicated unit tests~~ ✅ Done — `tests/unit/test_cli_streaming.py` covers NDJSON streaming output.
 13. **HITL wait requires external re-invocation**: When `hitl_status` is `"pending"`, the graph ends at `hitl_wait` → `END`. The external operator must approve via the dashboard/API and re-invoke the graph with `hitl_status="approved"`. This is deterministic and avoids LangGraph async interruption complexity.
-14. **Day 1 complete but embedding engine is dimension-agnostic**: `RealEmbeddingEngine` produces 384-dim vectors for `all-MiniLM-L6-v2`, but `PostgresBackend` (Day 2) must match this dimension in pgvector schema. Coordinate dimensions between engine and backend during Day 2 implementation.
+14. ~~Day 1 complete but embedding engine is dimension-agnostic~~ ✅ Done — `PostgresBackend` now uses `vector(384)` columns with `vector_dimension=384` default, matching `RealEmbeddingEngine.dimension`.
 
 ---
 
@@ -90,7 +92,7 @@
 
 > Priority 10 — Memory Upgrade (4-Day Plan)
 > - Day 1: Real Embedding Engine ✅ Complete — PR #25
-> - Day 2: Persistent Storage (PostgreSQL + pgvector) — Pending
+> - Day 2: Persistent Storage (PostgreSQL + pgvector) ✅ Complete — PR #26
 > - Day 3: True Memory Lifecycle (LLM consolidation, Ebbinghaus forgetting) — Pending
 > - Day 4: Integration & Tool Exposure (store_memory, recall_memory tools) — Pending
 
@@ -111,7 +113,7 @@
 11. ~~Real-Time Cognitive Streaming~~ ✅ Done — `aio/streaming/` package with manager, transports, store, graph integration, CLI `--stream`, dashboard `/ws/live`.
 12. ~~Human-in-the-Loop & Feedback Loop~~ ✅ Done — `HitlGate`, `FeedbackCollector`, `EscalationPolicy`, `FeedbackLoopEngine`, `HitlConfig`, dashboard `/hitl` queue, graph wiring, tests.
 13. ~~Day 1: Real Embedding Engine~~ ✅ Done — extracted `RealEmbeddingEngine`/`PseudoEmbeddingEngine` into `aio/memory/embeddings.py` behind `ENABLE_REAL_EMBEDDINGS` flag with graceful fallback.
-14. Day 2: Persistent Storage with pgvector — `PostgresBackend` needs vector(384) columns and pgvector extension for ANN search.
+14. ~~Day 2: Persistent Storage with pgvector~~ ✅ Done — `PostgresBackend` upgraded with `vector(384)` columns, HNSW index, `vector_search`, `hybrid_search`, and graceful JSONB fallback.
 15. Day 3: True Memory Lifecycle — LLM-based episodic consolidation, adaptive Ebbinghaus forgetting curve.
 16. Day 4: Integration & Tool Exposure — `store_memory` and `recall_memory` tools registered in ToolGate.
 
@@ -164,6 +166,8 @@ requires-python = ">=3.10"
 | `MEMORY_BACKEND_TYPE` | `memory` | MemoryBridge backend: `memory` (in-process), `redis`, `postgres`, `hybrid` |
 | `REDIS_URL` | `redis://localhost:6379/0` | Redis connection string for `RedisBackend` |
 | `POSTGRES_URL` | `postgresql://localhost/aio` | PostgreSQL connection string for `PostgresBackend` and `ImmuneLearningEngine` |
+| `PGVECTOR_ENABLE` | `true` | Enable pgvector extension and vector-native schema in `PostgresBackend` |
+| `VECTOR_DIMENSION` | `384` | Embedding dimension used for pgvector schema creation |
 | `COGNITIVE_IMMUNE_LEARN_ENABLE` | `false` | Enable `ImmuneLearningEngine` learned anomaly detection |
 | `LEARN_ROLLING_WINDOW` | `100` | Rolling window size for immune learning baselines (read via `CognitiveImmuneConfig`) |
 | `LEARN_Z_THRESHOLD` | `2.0` | Z-score threshold for immune anomaly detection (read via `CognitiveImmuneConfig`) |

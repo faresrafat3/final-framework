@@ -79,6 +79,9 @@ from aio import (
     RealEmbeddingEngine,
     PseudoEmbeddingEngine,
     EmbeddingEngineFactory,
+    LLMConsolidator,
+    EbbinghausForgettingCurve,
+    MemoryLifecycleEngine,
     node_context_ingest,
     node_context_sculpt,
     node_memory_retrieve,
@@ -158,6 +161,7 @@ from aio import (
     HTTPX_AVAILABLE,
     PSUTIL_AVAILABLE,
     JINJA2_AVAILABLE,
+    PGVECTOR_AVAILABLE,
     _NullContext,
 )
 

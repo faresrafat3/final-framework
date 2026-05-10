@@ -72,6 +72,10 @@ class MemoryConfig(BaseModel):
         backend_type: Storage backend — ``memory``, ``redis``, ``postgres``, or ``hybrid``.
         redis_url: Connection string for the Redis backend.
         postgres_url: Connection string for the PostgreSQL backend.
+        enable_llm_consolidation: Whether to use an LLM to summarize episodic batches before promoting to long-term memory.
+        llm_consolidation_provider: LLM provider for consolidation — ``openai`` or ``anthropic``.
+        llm_consolidation_model: Model identifier for LLM consolidation.
+        forgetting_curve_base: Base of the exponential decay for the Ebbinghaus forgetting curve (default 0.5).
     """
 
     epiphany_ttl_seconds: int = 3600
@@ -84,6 +88,12 @@ class MemoryConfig(BaseModel):
     backend_type: str = Field(default_factory=lambda: os.getenv("MEMORY_BACKEND_TYPE", "memory"))
     redis_url: str = Field(default_factory=lambda: os.getenv("REDIS_URL", "redis://localhost:6379/0"))
     postgres_url: str = Field(default_factory=lambda: os.getenv("POSTGRES_URL", "postgresql://localhost/aio"))
+    pgvector_enable: bool = Field(default_factory=lambda: os.getenv("PGVECTOR_ENABLE", "true").lower() == "true")
+    vector_dimension: int = 384
+    enable_llm_consolidation: bool = Field(default_factory=lambda: os.getenv("ENABLE_LLM_CONSOLIDATION", "false").lower() == "true")
+    llm_consolidation_provider: str = Field(default_factory=lambda: os.getenv("LLM_CONSOLIDATION_PROVIDER", "openai"))
+    llm_consolidation_model: str = Field(default_factory=lambda: os.getenv("LLM_CONSOLIDATION_MODEL", "gpt-4o-mini"))
+    forgetting_curve_base: float = Field(default_factory=lambda: float(os.getenv("FORGETTING_CURVE_BASE", "0.5")))
 
 
 class PlanningConfig(BaseModel):

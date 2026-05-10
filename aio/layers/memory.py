@@ -9,6 +9,7 @@ from typing import Any, Dict, List, Optional, Tuple
 
 from ..config.models import MemoryConfig
 from ..memory.embeddings import EmbeddingEngineFactory
+from ..memory.lifecycle import MemoryLifecycleEngine
 from .observability import ObservabilityLayer
 from ..state import AIOState
 from .memory_backends import (
@@ -38,6 +39,7 @@ class MemoryBridge:
         self._long_term: Dict[str, Dict[str, Any]] = self._backend.long_term
         self._keyword_index: Dict[str, List[str]] = self._backend.keyword_index
         self._embedding_engine = EmbeddingEngineFactory.create(config)
+        self._lifecycle = MemoryLifecycleEngine(config, observability)
 
     def _create_backend(self, config: MemoryConfig) -> BaseMemoryBackend:
         backend_type = config.backend_type.lower()
@@ -49,7 +51,11 @@ class MemoryBridge:
                 return InMemoryBackend()
         if backend_type == "postgres":
             try:
-                return PostgresBackend(config.postgres_url)
+                return PostgresBackend(
+                    config.postgres_url,
+                    vector_dimension=config.vector_dimension,
+                    pgvector_enable=config.pgvector_enable,
+                )
             except Exception as exc:  # pragma: no cover
                 logger.warning("PostgresBackend init failed: %s. Falling back to InMemoryBackend.", exc)
                 return InMemoryBackend()
@@ -174,6 +180,10 @@ class MemoryBridge:
     def consolidate(self, state: AIOState) -> AIOState:
         """Promote aged, verified episodic entries to long-term memory.
 
+        When ``enable_llm_consolidation`` is *True* and an LLM is available,
+        episodic batches are summarized into a semantic long-term entry.
+        Otherwise the heuristic fallback (top-important snippets) is used.
+
         Args:
             state: Current :class:`AIOState`.
 
@@ -189,19 +199,38 @@ class MemoryBridge:
                     batch.append(entry)
                 if len(batch) >= self.config.consolidation_batch_size:
                     break
-            for entry in batch:
-                eid = entry["id"]
-                self._long_term[eid] = entry
-                if eid in self._episodic:
-                    del self._episodic[eid]
+
+            if batch:
+                new_lt_entries = self._lifecycle.run_consolidation(
+                    batch, embed_fn=self._embed, hash_fn=self._hash
+                )
+                for lt_entry in new_lt_entries:
+                    lt_eid = lt_entry["id"]
+                    self._long_term[lt_eid] = lt_entry
+                    self._index_keywords(lt_eid, lt_entry.get("content", ""))
+                # Remove source episodic entries
+                for entry in batch:
+                    eid = entry["id"]
+                    if eid in self._episodic:
+                        del self._episodic[eid]
+
             state["long_term_memory"] = list(self._long_term.values())
             self.obs.record_latency("memory.consolidate", time.time() - start)
             self.obs.count_node("memory.consolidate", "success")
         self._backend.sync()
         return state
 
+    def _bump_access_count(self, entry_id: str) -> None:
+        """Increment the access counter for *entry_id* in episodic or long_term."""
+        for store in (self._episodic, self._long_term):
+            if entry_id in store:
+                store[entry_id]["access_count"] = store[entry_id].get("access_count", 0) + 1
+
     def retrieve(self, state: AIOState) -> AIOState:
         """Hybrid keyword + vector search over episodic and long-term stores.
+
+        Retrieved entries have their ``access_count`` incremented so the
+        adaptive forgetting curve preserves frequently-accessed memories.
 
         Args:
             state: Current :class:`AIOState`.
@@ -214,6 +243,32 @@ class MemoryBridge:
             query = state.get("raw_input", "")
             q_embed = self._embed(query)
             q_words = set(re.findall(r"\b\w{3,}\b", query.lower()))
+
+            # Delegate to PostgresBackend hybrid_search when pgvector is active
+            if (
+                isinstance(self._backend, PostgresBackend)
+                and getattr(self._backend, "_pgvector_active", False)
+            ):
+                keywords = list(q_words)
+                top_k = self._backend.hybrid_search(
+                    query_embedding=q_embed,
+                    keywords=keywords,
+                    top_k=self.config.retrieval_top_k,
+                )
+                pool = {**self._long_term, **self._episodic}
+                retrieved = []
+                for eid, score in top_k:
+                    entry = pool.get(eid)
+                    if entry:
+                        self._bump_access_count(eid)
+                        retrieved.append(entry)
+                confidence = top_k[0][1] if top_k else 0.0
+                state["working_memory"] = retrieved
+                state["memory_confidence"] = round(confidence, 4)
+                self.obs.record_latency("memory.retrieve", time.time() - start)
+                self.obs.count_node("memory.retrieve", "success")
+                return state
+
             candidate_ids: set = set()
             for w in q_words:
                 candidate_ids.update(self._keyword_index.get(w, []))
@@ -234,7 +289,12 @@ class MemoryBridge:
                 scored.append((eid, score))
             scored.sort(key=lambda x: x[1], reverse=True)
             top_k = scored[: self.config.retrieval_top_k]
-            retrieved = [pool[eid] for eid, _ in top_k if eid in pool]
+            retrieved = []
+            for eid, _ in top_k:
+                entry = pool.get(eid)
+                if entry:
+                    self._bump_access_count(eid)
+                    retrieved.append(entry)
             confidence = top_k[0][1] if top_k else 0.0
             state["working_memory"] = retrieved
             state["memory_confidence"] = round(confidence, 4)
@@ -244,6 +304,10 @@ class MemoryBridge:
 
     def forget(self, state: AIOState) -> AIOState:
         """Purge old, unimportant entries from both memory stores.
+
+        Uses an adaptive Ebbinghaus forgetting curve where retention is
+        modulated by importance and access count.  Higher-importance and
+        frequently-accessed memories decay more slowly.
 
         Args:
             state: Current :class:`AIOState`.
@@ -255,15 +319,13 @@ class MemoryBridge:
         with self.obs.start_span("memory.forget", state.get("trace_id")):
             now = time.time()
             for store in (self._episodic, self._long_term):
-                for eid in list(store.keys()):
-                    entry = store[eid]
-                    age = now - entry.get("timestamp", now)
-                    importance = entry.get("importance", 0.5)
-                    if age > self.config.forget_ttl_seconds and importance < self.config.importance_threshold:
+                to_purge = self._lifecycle.run_forget(store, now)
+                for eid in to_purge:
+                    if eid in store:
                         del store[eid]
-                        for lst in self._keyword_index.values():
-                            if eid in lst:
-                                lst.remove(eid)
+                    for lst in self._keyword_index.values():
+                        if eid in lst:
+                            lst.remove(eid)
             self.obs.record_latency("memory.forget", time.time() - start)
             self.obs.count_node("memory.forget", "success")
         self._backend.sync()

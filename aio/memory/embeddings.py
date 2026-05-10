@@ -20,6 +20,8 @@ logger = logging.getLogger(__name__)
 class BaseEmbeddingEngine(ABC):
     """Abstract base for embedding engines."""
 
+    dimension: int = 0
+
     @abstractmethod
     def embed(self, text: str) -> List[float]:
         """Return a normalized embedding vector for *text*."""
@@ -50,6 +52,7 @@ class RealEmbeddingEngine(BaseEmbeddingEngine):
 class PseudoEmbeddingEngine(BaseEmbeddingEngine):
     """Deterministic hash-based fallback producing 64-dim normalized vectors."""
 
+    dimension: int = 64
     DIMENSION = 64
 
     def embed(self, text: str) -> List[float]:
