@@ -1,4 +1,4 @@
-"""AIO Framework — Memory embedding engines and factory."""
+"""AIO Framework — Memory embedding engines, lifecycle engine, and factory."""
 
 from .embeddings import (
     BaseEmbeddingEngine,
@@ -6,10 +6,18 @@ from .embeddings import (
     PseudoEmbeddingEngine,
     EmbeddingEngineFactory,
 )
+from .lifecycle import (
+    LLMConsolidator,
+    EbbinghausForgettingCurve,
+    MemoryLifecycleEngine,
+)
 
 __all__ = [
     "BaseEmbeddingEngine",
     "RealEmbeddingEngine",
     "PseudoEmbeddingEngine",
     "EmbeddingEngineFactory",
+    "LLMConsolidator",
+    "EbbinghausForgettingCurve",
+    "MemoryLifecycleEngine",
 ]

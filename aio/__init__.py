@@ -138,6 +138,11 @@ from .memory.embeddings import (
     PseudoEmbeddingEngine,
     EmbeddingEngineFactory,
 )
+from .memory.lifecycle import (
+    LLMConsolidator,
+    EbbinghausForgettingCurve,
+    MemoryLifecycleEngine,
+)
 from .state import AIOState, make_initial_state
 from .graph.builder import build_aio_graph
 from .dashboard.store import AuditStore
@@ -369,6 +374,9 @@ __all__ = [
     "RealEmbeddingEngine",
     "PseudoEmbeddingEngine",
     "EmbeddingEngineFactory",
+    "LLMConsolidator",
+    "EbbinghausForgettingCurve",
+    "MemoryLifecycleEngine",
     "AuditStore",
     "create_dashboard_app",
     "BenchmarkConfig",
