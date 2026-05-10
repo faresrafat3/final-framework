@@ -2,7 +2,6 @@ from .models import (
     AIOConfig,
     ObservabilityConfig,
     ContextConfig,
-    MemoryConfig,
     PlanningConfig,
     CuriosityConfig,
     VerifierConfig,
@@ -19,6 +18,7 @@ from .models import (
     MCPServerConfig,
     HitlConfig,
 )
+from .memory import MemoryConfig
 from .deps import (
     OTEL_AVAILABLE,
     PROMETHEUS_AVAILABLE,
