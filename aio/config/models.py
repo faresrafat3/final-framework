@@ -84,6 +84,8 @@ class MemoryConfig(BaseModel):
     backend_type: str = Field(default_factory=lambda: os.getenv("MEMORY_BACKEND_TYPE", "memory"))
     redis_url: str = Field(default_factory=lambda: os.getenv("REDIS_URL", "redis://localhost:6379/0"))
     postgres_url: str = Field(default_factory=lambda: os.getenv("POSTGRES_URL", "postgresql://localhost/aio"))
+    pgvector_enable: bool = Field(default_factory=lambda: os.getenv("PGVECTOR_ENABLE", "true").lower() == "true")
+    vector_dimension: int = 384
 
 
 class PlanningConfig(BaseModel):

@@ -79,6 +79,7 @@ from .config.deps import (
     HTTPX_AVAILABLE,
     PSUTIL_AVAILABLE,
     JINJA2_AVAILABLE,
+    PGVECTOR_AVAILABLE,
 )
 from .layers.observability import ObservabilityLayer, _NullContext
 from .layers.context import ContextManager
@@ -312,6 +313,7 @@ __all__ = [
     "HTTPX_AVAILABLE",
     "PSUTIL_AVAILABLE",
     "JINJA2_AVAILABLE",
+    "PGVECTOR_AVAILABLE",
     "ObservabilityLayer",
     "_NullContext",
     "ContextManager",

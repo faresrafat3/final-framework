@@ -3,9 +3,9 @@ from __future__ import annotations
 import json
 import logging
 from abc import ABC, abstractmethod
-from typing import Any, Dict
+from typing import Any, Dict, List, Optional, Tuple
 
-from ..config.deps import REDIS_AVAILABLE, PSYCOPG2_AVAILABLE
+from ..config.deps import REDIS_AVAILABLE, PSYCOPG2_AVAILABLE, _check_pgvector_sql
 
 logger = logging.getLogger(__name__)
 
@@ -117,73 +117,172 @@ class RedisBackend(BaseMemoryBackend):
 
 
 class PostgresBackend(BaseMemoryBackend):
-    """Persists memory dicts to PostgreSQL using JSONB.
+    """Persists memory dicts to PostgreSQL with optional pgvector ANN support.
 
-    Falls back to a no-op if ``psycopg2`` is unavailable or the server is
-    unreachable on initialisation.
+    When ``pgvector_enable`` is *True* and the pgvector extension is
+    installed in the target database, the backend stores embeddings in a
+    native ``vector`` column and supports HNSW-based approximate nearest-
+    neighbour search.  If pgvector is unavailable it gracefully degrades to
+    a JSONB-only mode that preserves all existing behaviour.
 
     Args:
-        postgres_url: PostgreSQL connection URL (e.g. ``postgresql://localhost/aio``).
+        postgres_url: PostgreSQL connection URL.
+        vector_dimension: Dimensionality of embedding vectors (default 384).
+        pgvector_enable: Whether to attempt pgvector schema and operations.
     """
 
     _TABLE_ENTRIES = "aio_memory_entries"
     _TABLE_KEYWORDS = "aio_memory_keywords"
 
-    def __init__(self, postgres_url: str) -> None:
+    def __init__(
+        self,
+        postgres_url: str,
+        vector_dimension: int = 384,
+        pgvector_enable: bool = True,
+    ) -> None:
         super().__init__()
         self._postgres_url = postgres_url
+        self._vector_dimension = vector_dimension
+        self._pgvector_enable = pgvector_enable
         self._conn: Any = None
+        self._pgvector_active = False
+
         if not PSYCOPG2_AVAILABLE:
             logger.warning("psycopg2 package not installed; PostgresBackend will not persist data.")
             return
+
         try:
             import psycopg2 as _pg
             self._conn = _pg.connect(postgres_url)
+            self._pgvector_active = self._check_pgvector_available()
+            if self._pgvector_enable and not self._pgvector_active:
+                logger.warning(
+                    "pgvector extension not available in Postgres at %s; "
+                    "degrading to JSONB mode (no ANN, no vector column ops).",
+                    postgres_url,
+                )
             self._ensure_schema()
         except Exception as exc:  # pragma: no cover
-            logger.warning("Failed to connect to Postgres at %s: %s. Data will not be persisted.", postgres_url, exc)
+            logger.warning(
+                "Failed to connect to Postgres at %s: %s. Data will not be persisted.",
+                postgres_url,
+                exc,
+            )
             self._conn = None
+            self._pgvector_active = False
+
         self.load()
 
+    # ------------------------------------------------------------------
+    # Schema & pgvector probes
+    # ------------------------------------------------------------------
+
+    def _check_pgvector_available(self) -> bool:
+        """Return *True* if the pgvector extension is installed in the DB."""
+        if self._conn is None:
+            return False
+        return _check_pgvector_sql(self._conn)
+
     def _ensure_schema(self) -> None:
-        """Create the required tables if they do not exist."""
+        """Create required tables and indexes if they do not exist."""
         if self._conn is None:
             return
+
         with self._conn.cursor() as cur:
-            cur.execute(
-                f"""
-                CREATE TABLE IF NOT EXISTS {self._TABLE_ENTRIES} (
-                    entry_id TEXT PRIMARY KEY,
-                    store_type TEXT NOT NULL,
-                    payload JSONB NOT NULL
+            if self._pgvector_active:
+                cur.execute("CREATE EXTENSION IF NOT EXISTS pgvector")
+                cur.execute(
+                    f"""
+                    CREATE TABLE IF NOT EXISTS {self._TABLE_ENTRIES} (
+                        entry_id TEXT PRIMARY KEY,
+                        store_type TEXT NOT NULL,
+                        role TEXT,
+                        content TEXT NOT NULL,
+                        embedding vector({self._vector_dimension}),
+                        importance FLOAT DEFAULT 0.5,
+                        turn INT DEFAULT 0,
+                        timestamp FLOAT DEFAULT 0,
+                        verification_passed BOOLEAN DEFAULT FALSE,
+                        metadata JSONB DEFAULT '{{}}'
+                    )
+                    """
                 )
-                """
-            )
+                cur.execute(
+                    f"""
+                    CREATE INDEX IF NOT EXISTS idx_memory_embedding_hnsw
+                    ON {self._TABLE_ENTRIES}
+                    USING hnsw (embedding vector_cosine_ops)
+                    WITH (m = 16, ef_construction = 64)
+                    """
+                )
+            else:
+                cur.execute(
+                    f"""
+                    CREATE TABLE IF NOT EXISTS {self._TABLE_ENTRIES} (
+                        entry_id TEXT PRIMARY KEY,
+                        store_type TEXT NOT NULL,
+                        payload JSONB NOT NULL
+                    )
+                    """
+                )
+
             cur.execute(
                 f"""
                 CREATE TABLE IF NOT EXISTS {self._TABLE_KEYWORDS} (
                     keyword TEXT PRIMARY KEY,
-                    entry_ids JSONB NOT NULL
+                    entry_ids TEXT[] NOT NULL
                 )
                 """
             )
             self._conn.commit()
 
+    # ------------------------------------------------------------------
+    # Load / Sync
+    # ------------------------------------------------------------------
+
     def load(self) -> None:
-        """Hydrate in-memory dicts from PostgreSQL JSONB rows."""
+        """Hydrate in-memory dicts from PostgreSQL rows."""
         if self._conn is None:
             return
         try:
             with self._conn.cursor() as cur:
-                cur.execute(
-                    f"SELECT entry_id, store_type, payload FROM {self._TABLE_ENTRIES}"
-                )
-                for eid, store_type, payload in cur.fetchall():
-                    entry = dict(payload)
-                    if store_type == "episodic":
-                        self.episodic[eid] = entry
-                    else:
-                        self.long_term[eid] = entry
+                if self._pgvector_active:
+                    cur.execute(
+                        f"""
+                        SELECT entry_id, store_type, role, content, embedding,
+                               importance, turn, timestamp, verification_passed, metadata
+                        FROM {self._TABLE_ENTRIES}
+                        """
+                    )
+                    for row in cur.fetchall():
+                        eid, store_type, role, content, embedding, importance, turn, ts, verified, meta = row
+                        entry: Dict[str, Any] = {
+                            "id": eid,
+                            "role": role,
+                            "content": content,
+                            "embedding": embedding,
+                            "importance": importance,
+                            "turn": turn,
+                            "timestamp": ts,
+                            "verification_passed": verified,
+                        }
+                        if meta:
+                            entry.update(meta)
+                        if store_type == "episodic":
+                            self.episodic[eid] = entry
+                        else:
+                            self.long_term[eid] = entry
+                else:
+                    cur.execute(
+                        f"SELECT entry_id, store_type, payload FROM {self._TABLE_ENTRIES}"
+                    )
+                    for eid, store_type, payload in cur.fetchall():
+                        entry = dict(payload)
+                        if store_type == "episodic":
+                            self.episodic[eid] = entry
+                        else:
+                            self.long_term[eid] = entry
+
                 cur.execute(f"SELECT keyword, entry_ids FROM {self._TABLE_KEYWORDS}")
                 for keyword, entry_ids in cur.fetchall():
                     self.keyword_index[keyword] = list(entry_ids)
@@ -198,24 +297,188 @@ class PostgresBackend(BaseMemoryBackend):
             with self._conn.cursor() as cur:
                 cur.execute(f"DELETE FROM {self._TABLE_ENTRIES}")
                 cur.execute(f"DELETE FROM {self._TABLE_KEYWORDS}")
-                for eid, entry in self.episodic.items():
-                    cur.execute(
-                        f"INSERT INTO {self._TABLE_ENTRIES} (entry_id, store_type, payload) VALUES (%s, %s, %s)",
-                        (eid, "episodic", json.dumps(entry, default=str)),
-                    )
-                for eid, entry in self.long_term.items():
-                    cur.execute(
-                        f"INSERT INTO {self._TABLE_ENTRIES} (entry_id, store_type, payload) VALUES (%s, %s, %s)",
-                        (eid, "long_term", json.dumps(entry, default=str)),
-                    )
+
+                if self._pgvector_active:
+                    for eid, entry in self.episodic.items():
+                        cur.execute(
+                            f"""
+                            INSERT INTO {self._TABLE_ENTRIES}
+                            (entry_id, store_type, role, content, embedding,
+                             importance, turn, timestamp, verification_passed, metadata)
+                            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+                            """,
+                            (
+                                eid,
+                                "episodic",
+                                entry.get("role"),
+                                entry.get("content", ""),
+                                entry.get("embedding"),
+                                entry.get("importance", 0.5),
+                                entry.get("turn", 0),
+                                entry.get("timestamp", 0.0),
+                                entry.get("verification_passed", False),
+                                json.dumps({k: v for k, v in entry.items()
+                                            if k not in {"id", "role", "content", "embedding",
+                                                         "importance", "turn", "timestamp",
+                                                         "verification_passed"}}, default=str),
+                            ),
+                        )
+                    for eid, entry in self.long_term.items():
+                        cur.execute(
+                            f"""
+                            INSERT INTO {self._TABLE_ENTRIES}
+                            (entry_id, store_type, role, content, embedding,
+                             importance, turn, timestamp, verification_passed, metadata)
+                            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+                            """,
+                            (
+                                eid,
+                                "long_term",
+                                entry.get("role"),
+                                entry.get("content", ""),
+                                entry.get("embedding"),
+                                entry.get("importance", 0.5),
+                                entry.get("turn", 0),
+                                entry.get("timestamp", 0.0),
+                                entry.get("verification_passed", False),
+                                json.dumps({k: v for k, v in entry.items()
+                                            if k not in {"id", "role", "content", "embedding",
+                                                         "importance", "turn", "timestamp",
+                                                         "verification_passed"}}, default=str),
+                            ),
+                        )
+                else:
+                    for eid, entry in self.episodic.items():
+                        cur.execute(
+                            f"INSERT INTO {self._TABLE_ENTRIES} (entry_id, store_type, payload) VALUES (%s, %s, %s)",
+                            (eid, "episodic", json.dumps(entry, default=str)),
+                        )
+                    for eid, entry in self.long_term.items():
+                        cur.execute(
+                            f"INSERT INTO {self._TABLE_ENTRIES} (entry_id, store_type, payload) VALUES (%s, %s, %s)",
+                            (eid, "long_term", json.dumps(entry, default=str)),
+                        )
+
                 for keyword, eids in self.keyword_index.items():
                     cur.execute(
                         f"INSERT INTO {self._TABLE_KEYWORDS} (keyword, entry_ids) VALUES (%s, %s)",
-                        (keyword, json.dumps(eids, default=str)),
+                        (keyword, list(eids)),
                     )
                 self._conn.commit()
         except Exception as exc:  # pragma: no cover
             logger.warning("Failed to sync to Postgres: %s", exc)
+
+    # ------------------------------------------------------------------
+    # Vector search
+    # ------------------------------------------------------------------
+
+    def vector_search(
+        self,
+        query_embedding: List[float],
+        store_type: Optional[str] = None,
+        top_k: int = 5,
+    ) -> List[Tuple[str, float]]:
+        """Pure ANN search using pgvector cosine distance.
+
+        Args:
+            query_embedding: The query vector.
+            store_type: Filter by ``'episodic'`` or ``'long_term'`` (optional).
+            top_k: Number of nearest neighbours to return.
+
+        Returns:
+            List of ``(entry_id, score)`` tuples sorted by descending score.
+            Score is ``1 - cosine_distance`` so that higher is better.
+        """
+        if self._conn is None or not self._pgvector_active:
+            return []
+
+        params: List[Any] = [query_embedding]
+        where_clause = ""
+        if store_type is not None:
+            where_clause = "AND store_type = %s"
+            params.append(store_type)
+
+        try:
+            with self._conn.cursor() as cur:
+                cur.execute(
+                    f"""
+                    SELECT entry_id, 1 - (embedding <=> %s::vector) AS score
+                    FROM {self._TABLE_ENTRIES}
+                    WHERE embedding IS NOT NULL {where_clause}
+                    ORDER BY embedding <=> %s::vector
+                    LIMIT %s
+                    """,
+                    (*params, query_embedding, top_k),
+                )
+                return [(row[0], float(row[1])) for row in cur.fetchall()]
+        except Exception as exc:  # pragma: no cover
+            logger.warning("vector_search failed: %s", exc)
+            return []
+
+    def hybrid_search(
+        self,
+        query_embedding: List[float],
+        keywords: List[str],
+        store_type: Optional[str] = None,
+        top_k: int = 5,
+    ) -> List[Tuple[str, float]]:
+        """Hybrid retrieval combining vector similarity and keyword overlap.
+
+        Scoring formula (at SQL level)::
+
+            total_score = vector_score * 0.6 + keyword_score * 0.4
+
+        where ``vector_score = 1 - cosine_distance`` and ``keyword_score``
+        is the Jaccard-like fraction of query keywords present in the entry's
+        content (lower-cased, word-boundary match).
+
+        Args:
+            query_embedding: The query vector.
+            keywords: Query keywords extracted from the raw input.
+            store_type: Filter by ``'episodic'`` or ``'long_term'`` (optional).
+            top_k: Number of top results to return.
+
+        Returns:
+            List of ``(entry_id, total_score)`` tuples sorted by descending score.
+        """
+        if self._conn is None or not self._pgvector_active:
+            return []
+
+        params: List[Any] = [query_embedding]
+        where_clause = ""
+        if store_type is not None:
+            where_clause = "AND store_type = %s"
+            params.append(store_type)
+
+        keyword_patterns = [f"% {kw.lower()} %" for kw in keywords if kw]
+        if not keyword_patterns:
+            # No keywords — fall back to pure vector search
+            return self.vector_search(query_embedding, store_type=store_type, top_k=top_k)
+
+        # Build a SQL expression that counts how many keywords match the content.
+        keyword_conditions = " OR ".join(
+            f"LOWER(content) LIKE %s" for _ in keyword_patterns
+        )
+        keyword_params = keyword_patterns[:]
+
+        try:
+            with self._conn.cursor() as cur:
+                cur.execute(
+                    f"""
+                    SELECT entry_id,
+                           (1 - (embedding <=> %s::vector)) * 0.6
+                           + (CASE WHEN ({keyword_conditions}) THEN 0.4 ELSE 0.0 END) AS score
+                    FROM {self._TABLE_ENTRIES}
+                    WHERE embedding IS NOT NULL {where_clause}
+                    ORDER BY score DESC
+                    LIMIT %s
+                    """,
+                    (query_embedding, *keyword_params, *params[1:], top_k),
+                )
+                return [(row[0], float(row[1])) for row in cur.fetchall()]
+        except Exception as exc:  # pragma: no cover
+            logger.warning("hybrid_search failed: %s", exc)
+            return []
 
     def close(self) -> None:
         """Close the PostgreSQL connection."""

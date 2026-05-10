@@ -49,7 +49,11 @@ class MemoryBridge:
                 return InMemoryBackend()
         if backend_type == "postgres":
             try:
-                return PostgresBackend(config.postgres_url)
+                return PostgresBackend(
+                    config.postgres_url,
+                    vector_dimension=config.vector_dimension,
+                    pgvector_enable=config.pgvector_enable,
+                )
             except Exception as exc:  # pragma: no cover
                 logger.warning("PostgresBackend init failed: %s. Falling back to InMemoryBackend.", exc)
                 return InMemoryBackend()
@@ -214,6 +218,27 @@ class MemoryBridge:
             query = state.get("raw_input", "")
             q_embed = self._embed(query)
             q_words = set(re.findall(r"\b\w{3,}\b", query.lower()))
+
+            # Delegate to PostgresBackend hybrid_search when pgvector is active
+            if (
+                isinstance(self._backend, PostgresBackend)
+                and getattr(self._backend, "_pgvector_active", False)
+            ):
+                keywords = list(q_words)
+                top_k = self._backend.hybrid_search(
+                    query_embedding=q_embed,
+                    keywords=keywords,
+                    top_k=self.config.retrieval_top_k,
+                )
+                pool = {**self._long_term, **self._episodic}
+                retrieved = [pool[eid] for eid, _ in top_k if eid in pool]
+                confidence = top_k[0][1] if top_k else 0.0
+                state["working_memory"] = retrieved
+                state["memory_confidence"] = round(confidence, 4)
+                self.obs.record_latency("memory.retrieve", time.time() - start)
+                self.obs.count_node("memory.retrieve", "success")
+                return state
+
             candidate_ids: set = set()
             for w in q_words:
                 candidate_ids.update(self._keyword_index.get(w, []))

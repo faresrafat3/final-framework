@@ -111,6 +111,29 @@ except Exception:  # pragma: no cover
     jinja2 = None  # type: ignore[misc]
     JINJA2_AVAILABLE = False
 
+try:
+    import pgvector
+    PGVECTOR_AVAILABLE = True
+except Exception:  # pragma: no cover
+    pgvector = None  # type: ignore[misc]
+    PGVECTOR_AVAILABLE = False
+
+
+def _check_pgvector_sql(conn) -> bool:
+    """Runtime SQL probe for the pgvector PostgreSQL extension.
+
+    In production pgvector is a PostgreSQL extension, not a Python package,
+    so ``PGVECTOR_AVAILABLE`` (which tries ``import pgvector``) may be
+    insufficient.  Use this helper with an open psycopg2 connection to
+    determine whether the extension is installed in the target database.
+    """
+    try:
+        with conn.cursor() as cur:
+            cur.execute("SELECT 1 FROM pg_extension WHERE extname='pgvector'")
+            return cur.fetchone() is not None
+    except Exception:  # pragma: no cover
+        return False
+
 
 # ---------------------------------------------------------------------------
 # Constants & Configuration

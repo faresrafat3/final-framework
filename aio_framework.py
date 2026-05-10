@@ -158,6 +158,7 @@ from aio import (
     HTTPX_AVAILABLE,
     PSUTIL_AVAILABLE,
     JINJA2_AVAILABLE,
+    PGVECTOR_AVAILABLE,
     _NullContext,
 )
 

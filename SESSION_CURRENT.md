@@ -6,67 +6,86 @@
 
 ## Session Status
 
-**Priority 10 — Memory Upgrade — Day 1 Complete** ✅
+**Priority 10 — Memory Upgrade — Day 2 Complete** ✅
 
 ---
 
 ## Work Completed
 
-- **Day 1: Real Embedding Engine (PR #25)**
-  - Created `aio/memory/embeddings.py` with clean embedding engine architecture:
-    - `BaseEmbeddingEngine` (ABC) — `embed(text: str) -> List[float]` contract
-    - `RealEmbeddingEngine` — wraps `sentence-transformers` `SentenceTransformer`, configurable model name (default `all-MiniLM-L6-v2`), normalizes vectors to unit length, dimension=384
-    - `PseudoEmbeddingEngine` — deterministic hash-based fallback producing 64-dim normalized vectors (backward-compatible with old behavior)
-    - `EmbeddingEngineFactory.create(config)` — returns `RealEmbeddingEngine` when `ENABLE_REAL_EMBEDDINGS=true` AND `sentence-transformers` is available; otherwise `PseudoEmbeddingEngine` with warning log
-  - Refactored `aio/layers/memory.py`:
-    - Removed inline `sys.modules.get("aio_framework")` hack (lines ~42-53)
-    - Replaced inline `_embed()` body with delegation to `self._embedding_engine.embed(content)`
-    - `MemoryBridge` public API unchanged (`encode`, `verify`, `store`, `consolidate`, `retrieve`, `forget`)
-  - Updated `aio/__init__.py` — exports `RealEmbeddingEngine`, `PseudoEmbeddingEngine`, `EmbeddingEngineFactory`
-  - Added `tests/unit/test_memory_embeddings.py`:
-    - `test_pseudo_embedding_determinism`
-    - `test_pseudo_embedding_normalization`
-    - `test_real_embedding_factory_when_disabled`
-    - `test_real_embedding_factory_when_enabled_but_unavailable`
-    - `test_real_embedding_dimensions`
-  - Updated `tests/unit/test_memory_bridge.py` — added `test_memory_bridge_uses_embedding_engine`
+- **Day 2: PostgreSQL + pgvector Persistent Storage (PR #26)**
+  - Updated `aio/memory/embeddings.py`:
+    - Added `dimension: int` class property to `BaseEmbeddingEngine`
+    - `RealEmbeddingEngine.dimension = 384`
+    - `PseudoEmbeddingEngine.dimension = 64`
+  - Updated `aio/config/deps.py`:
+    - Added `PGVECTOR_AVAILABLE` runtime guard (`try/except import pgvector`)
+    - Added `_check_pgvector_sql(conn)` SQL probe for production environments where pgvector is a PostgreSQL extension rather than a Python package
+  - Updated `aio/config/models.py`:
+    - `MemoryConfig` gains `pgvector_enable: bool` (env `PGVECTOR_ENABLE`, default `true`)
+    - `MemoryConfig` gains `vector_dimension: int = 384`
+  - Refactored `aio/layers/memory_backends.py` — `PostgresBackend` upgraded to vector-native backend:
+    - New `__init__(postgres_url, vector_dimension=384, pgvector_enable=True)` signature
+    - `_check_pgvector_available()` — SQL probe using `_check_pgvector_sql`
+    - `_ensure_schema()` — creates `CREATE EXTENSION IF NOT EXISTS pgvector`, `aio_memory_entries` with `vector(384)` column, `aio_memory_keywords`, and HNSW index (`idx_memory_embedding_hnsw` with `vector_cosine_ops`)
+    - Graceful JSONB fallback when pgvector extension is unavailable
+    - `load()` / `sync()` — hydrate and persist in-memory dicts, support both pgvector and JSONB modes
+    - **NEW** `vector_search(query_embedding, store_type, top_k)` — pure ANN using `<=>` cosine distance
+    - **NEW** `hybrid_search(query_embedding, keywords, store_type, top_k)` — SQL-level weighted scoring: vector similarity (0.6) + keyword overlap (0.4)
+    - `close()` — closes connection
+  - Updated `aio/layers/memory.py`:
+    - `MemoryBridge._create_backend()` passes `vector_dimension` and `pgvector_enable` to `PostgresBackend`
+    - `MemoryBridge.retrieve()` delegates to `PostgresBackend.hybrid_search()` when pgvector is active; otherwise retains existing Python-side hybrid search
+  - Updated `aio/__init__.py`:
+    - Exports `PGVECTOR_AVAILABLE`
+  - Added `tests/unit/test_pgvector_backend.py` (8 tests):
+    - `test_pgvector_schema_creation` — verifies SQL generation (mocked cursor)
+    - `test_vector_search_uses_cosine_distance` — verifies `<=>` operator in SQL
+    - `test_vector_search_returns_scores` — mocked fetchall return values
+    - `test_hybrid_search_weights` — verifies vector(0.6) + keyword(0.4) scoring in SQL
+    - `test_hybrid_search_fallback_when_no_keywords` — falls back to pure vector search
+    - `test_pgvector_unavailable_degrades_to_jsonb` — schema uses JSONB fallback when extension missing
+    - `test_connection_failure_fallback` — init failure leaves `_conn=None`
+    - `test_psycopg2_unavailable_logs_warning` — missing package logs warning
+  - Added `tests/integration/test_memory_pgvector.py`:
+    - `test_full_flow_with_pgvector` — encode → verify → store → retrieve with real Postgres (skipped if no connection)
   - Updated documentation:
-    - `DECISION_LOG.md` — added D028 entry
-    - `PROJECT_STATE.md` — added Priority 10 status, Day 1 complete
-    - `SESSION_START.md` — added Priority 10 to matrix, `aio/memory/` to file map
-    - `CHANGELOG.md` — added Day 1 entry
+    - `CHANGELOG.md` — added `[10.0.0-day2]` section
+    - `PROJECT_STATE.md` — marked Day 2 complete, updated In-Flight Work, added new tests to coverage matrix, updated feature flags
+    - `DECISION_LOG.md` — added D029 entry for pgvector backend upgrade
+    - `SESSION_START.md` — updated file map and status matrix
+    - `SESSION_CURRENT.md` — this file
 
 ---
 
 ## Files Modified (This Session)
 
-- `aio/memory/__init__.py` (created)
-- `aio/memory/embeddings.py` (created)
-- `aio/layers/memory.py` (refactored)
-- `aio/__init__.py` (exports added)
-- `tests/unit/test_memory_embeddings.py` (created)
-- `tests/unit/test_memory_bridge.py` (updated)
-- `DECISION_LOG.md`
-- `PROJECT_STATE.md`
-- `SESSION_START.md`
+- `aio/memory/embeddings.py` (added `dimension` property)
+- `aio/config/deps.py` (added `PGVECTOR_AVAILABLE` + `_check_pgvector_sql`)
+- `aio/config/models.py` (added `pgvector_enable` and `vector_dimension` to `MemoryConfig`)
+- `aio/layers/memory_backends.py` (major refactor: vector-native schema, ANN search, hybrid retrieval, graceful degradation)
+- `aio/layers/memory.py` (delegates retrieve to backend hybrid_search when pgvector active)
+- `aio/__init__.py` (exports `PGVECTOR_AVAILABLE`)
+- `tests/unit/test_pgvector_backend.py` (created)
+- `tests/integration/test_memory_pgvector.py` (created)
 - `CHANGELOG.md`
+- `PROJECT_STATE.md`
+- `DECISION_LOG.md`
+- `SESSION_START.md`
 - `SESSION_CURRENT.md` (this file)
 
 ---
 
 ## Handoff Notes
 
-- **Priority 10** is a 4-day memory upgrade mission inspired by MemForge, SuperLocalMemory, MAGMA, and Hindsight.
+- **Priority 10** is a 4-day memory upgrade mission.
 - **Day 1 is complete and merged via PR #25**.
-- **Day 2 (Persistent Storage with PostgreSQL + pgvector)** is the next priority.
-  - Current `PostgresBackend` uses JSONB without vector columns.
-  - Need to add `pgvector` extension, `vector(384)` columns, and ANN search (e.g., `ivfflat` or `hnsw` index).
-  - Must coordinate `vector(384)` dimension with `RealEmbeddingEngine` output.
-  - Maintain graceful fallback to `InMemoryBackend` if PostgreSQL/pgvector unavailable.
-- **Day 3 (True Memory Lifecycle)**: LLM-based episodic-to-long-term consolidation, Ebbinghaus forgetting curve.
+- **Day 2 is complete and merged via PR #26**.
+- **Day 3 (True Memory Lifecycle)** is the next priority.
+  - LLM-based episodic-to-long-term consolidation.
+  - Adaptive Ebbinghaus forgetting curve.
 - **Day 4 (Integration & Tool Exposure)**: Register `store_memory` and `recall_memory` as tools in ToolGate.
-- No breaking changes introduced in Day 1. All feature flags preserved.
+- No breaking changes introduced in Day 2. All feature flags preserved.
 
 ---
 
-*Last updated: 2026-05-08 — Post-PR #25, Day 1 Complete (Priority 10)*
+*Last updated: 2026-05-08 — Post-PR #26, Day 2 Complete (Priority 10)*
