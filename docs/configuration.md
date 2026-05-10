@@ -28,6 +28,10 @@ config = AIOConfig()
 | `MULTI_AGENT_ENABLE` | `true` | Layer 10 enable |
 | `SAFETY_GOVERNANCE_ENABLE` | `true` | Layer 11 enable |
 | `COGNITIVE_IMMUNE_ENABLE` | `true` | Layer 12 enable |
+| `MEMORY_BACKEND_TYPE` | `memory` | Memory backend: `memory`, `redis`, `postgres`, `hybrid` |
+| `POSTGRES_URL` | `postgresql://localhost/aio` | PostgreSQL connection string for persistent memory |
+| `PGVECTOR_ENABLE` | `true` | Enable pgvector schema/search when available |
+| `ENABLE_MEMORY_TOOLS` | `true` | Register `store_memory` / `recall_memory` tools when MemoryBridge is wired into ToolGate |
 | `MCP_ENABLE` | `false` | Enable MCP client and dynamic tool discovery |
 | `MCP_SERVERS` | `[]` | JSON array of MCP server configs |
 | `MCP_TIMEOUT_SECONDS` | `30` | Timeout for MCP JSON-RPC requests |

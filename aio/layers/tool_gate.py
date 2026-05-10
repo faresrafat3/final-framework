@@ -21,14 +21,23 @@ class ToolGate:
         config: Layer 7 configuration (socket, timeouts, sandbox limits).
         observability: Shared observability layer for spans and metrics.
         mcp_client: Optional :class:`aio.layers.mcp_client.MCPClient` for dynamic tool discovery.
+        memory_bridge: Optional :class:`aio.layers.memory.MemoryBridge` used to
+            register long-term memory tools when enabled.
     """
 
-    def __init__(self, config: ToolGateConfig, observability: ObservabilityLayer, mcp_client: Optional[Any] = None) -> None:
+    def __init__(
+        self,
+        config: ToolGateConfig,
+        observability: ObservabilityLayer,
+        mcp_client: Optional[Any] = None,
+        memory_bridge: Optional[Any] = None,
+    ) -> None:
         self.config = config
         self.obs = observability
         self._registry: Dict[str, Dict[str, Any]] = {}
         self._docker_client: Optional[Any] = None
         self._mcp_client = mcp_client
+        self._memory_bridge = memory_bridge
         if DOCKER_AVAILABLE:
             try:
                 self._docker_client = docker.DockerClient(base_url=config.docker_socket)
@@ -62,6 +71,61 @@ class ToolGate:
             sandbox=False,
             timeout=5,
         )
+        self._register_memory_tools()
+
+    def _register_memory_tools(self) -> None:
+        if not self.config.enable_memory_tools or self._memory_bridge is None:
+            return
+
+        self.register_tool(
+            name="store_memory",
+            schema={
+                "type": "object",
+                "properties": {
+                    "content": {"type": "string"},
+                    "role": {"type": "string"},
+                    "importance": {"type": "number"},
+                },
+                "required": ["content"],
+            },
+            sandbox=False,
+            timeout=5,
+            handler=self._handle_store_memory,
+        )
+        self.register_tool(
+            name="recall_memory",
+            schema={
+                "type": "object",
+                "properties": {
+                    "query": {"type": "string"},
+                    "top_k": {"type": "integer"},
+                },
+                "required": ["query"],
+            },
+            sandbox=False,
+            timeout=5,
+            handler=self._handle_recall_memory,
+        )
+
+    def _handle_store_memory(
+        self,
+        content: str,
+        role: str = "system",
+        importance: float = 0.75,
+    ) -> Dict[str, Any]:
+        if self._memory_bridge is None:
+            raise RuntimeError("memory bridge not available")
+        return self._memory_bridge.store_long_term(
+            content=content,
+            role=role,
+            importance=importance,
+        )
+
+    def _handle_recall_memory(self, query: str, top_k: int = 5) -> Dict[str, Any]:
+        if self._memory_bridge is None:
+            raise RuntimeError("memory bridge not available")
+        memories = self._memory_bridge.recall(query=query, top_k=top_k, include_episodic=False)
+        return {"count": len(memories), "entries": memories}
 
     def register_tool(
         self,
@@ -101,6 +165,20 @@ class ToolGate:
         intent = state.get("intent") or "general"
         plan = state.get("plan") or ""
         lowered = (intent + " " + plan).lower()
+
+        if "store_memory" in lowered:
+            return "store_memory" if "store_memory" in self._registry else "echo"
+        if "recall_memory" in lowered:
+            return "recall_memory" if "recall_memory" in self._registry else "echo"
+
+        store_markers = ("remember", "save this", "store memory", "memorize")
+        recall_markers = ("recall", "remember what", "search memory", "long-term memory")
+
+        if any(marker in lowered for marker in store_markers) and "store_memory" in self._registry:
+            return "store_memory"
+        if any(marker in lowered for marker in recall_markers) and "recall_memory" in self._registry:
+            return "recall_memory"
+
         if "code" in lowered or "python" in lowered:
             return "python_sandbox"
         if "run" in lowered or "bash" in lowered or "command" in lowered:
@@ -151,7 +229,7 @@ class ToolGate:
         return state
 
     def _extract_params(self, tool_name: str, plan: str) -> Dict[str, Any]:
-        safe_plan = plan or ""
+        safe_plan = (plan or "").strip()
         if tool_name == "python_sandbox":
             m = re.search(r"```python\r?\n(.*?)```", safe_plan, re.S)
             if m:
@@ -162,6 +240,22 @@ class ToolGate:
             if m:
                 return {"command": m.group(1).strip("\n\r")}
             return {"command": (safe_plan or "echo hello").strip("\n\r")}
+        if tool_name == "store_memory":
+            role_match = re.search(r"role\s*=\s*([a-zA-Z_]+)", safe_plan)
+            imp_match = re.search(r"importance\s*=\s*([0-9]*\.?[0-9]+)", safe_plan)
+            content = re.sub(r"\b(store_memory|remember|store memory|save this)\b", "", safe_plan, flags=re.I).strip()
+            return {
+                "content": content or safe_plan,
+                "role": role_match.group(1) if role_match else "system",
+                "importance": float(imp_match.group(1)) if imp_match else 0.75,
+            }
+        if tool_name == "recall_memory":
+            k_match = re.search(r"top[_\s-]?k\s*=\s*(\d+)", safe_plan, flags=re.I)
+            query = re.sub(r"\b(recall_memory|recall|search memory|long-term memory)\b", "", safe_plan, flags=re.I).strip()
+            return {
+                "query": query or safe_plan,
+                "top_k": int(k_match.group(1)) if k_match else 5,
+            }
         if tool_name == "echo":
             return {"message": (safe_plan or "echo").strip()}
         return {}

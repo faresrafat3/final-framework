@@ -191,6 +191,8 @@ class ToolGateConfig(BaseModel):
         network_disabled: Whether network access is blocked inside the sandbox.
         read_only_rootfs: Whether the container root filesystem is mounted read-only.
         registry_path: Optional filesystem path to a custom tool-registry JSON file.
+        enable_memory_tools: Whether to register long-term memory tools in ToolGate
+            when a :class:`aio.layers.memory.MemoryBridge` is provided.
     """
 
     docker_socket: str = DEFAULT_DOCKER_SOCKET
@@ -200,6 +202,7 @@ class ToolGateConfig(BaseModel):
     network_disabled: bool = True
     read_only_rootfs: bool = True
     registry_path: Optional[str] = None
+    enable_memory_tools: bool = Field(default_factory=lambda: os.getenv("ENABLE_MEMORY_TOOLS", "true").lower() == "true")
 
 
 class FailureRecoveryConfig(BaseModel):

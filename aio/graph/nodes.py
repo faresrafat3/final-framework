@@ -33,6 +33,7 @@ _LAYER_MAP: dict[str, tuple[str, int]] = {
     "memory_verify": ("Layer 2 — Memory", 2),
     "memory_store": ("Layer 2 — Memory", 2),
     "memory_consolidate": ("Layer 2 — Memory", 2),
+    "memory_forget": ("Layer 2 — Memory", 2),
     "plan_generate": ("Layer 3 — Planning", 3),
     "maci_select": ("Layer 3 — Planning", 3),
     "hiplan": ("Layer 3 — Planning", 3),
@@ -159,6 +160,10 @@ def node_memory_store(state: AIOState, mem: MemoryBridge, streaming_manager: Any
 
 def node_memory_consolidate(state: AIOState, mem: MemoryBridge, streaming_manager: Any = None) -> AIOState:
     return mem.consolidate(state)
+
+
+def node_memory_forget(state: AIOState, mem: MemoryBridge, streaming_manager: Any = None) -> AIOState:
+    return mem.forget(state)
 
 
 # Planning stub

@@ -93,8 +93,8 @@
 > Priority 10 — Memory Upgrade (4-Day Plan)
 > - Day 1: Real Embedding Engine ✅ Complete — PR #25
 > - Day 2: Persistent Storage (PostgreSQL + pgvector) ✅ Complete — PR #26
-> - Day 3: True Memory Lifecycle (LLM consolidation, Ebbinghaus forgetting) — Pending
-> - Day 4: Integration & Tool Exposure (store_memory, recall_memory tools) — Pending
+> - Day 3: True Memory Lifecycle (LLM consolidation, Ebbinghaus forgetting) ✅ Complete — PR #29
+> - Day 4: Integration & Tool Exposure (store_memory, recall_memory tools) ✅ Complete — this branch
 
 ---
 
@@ -114,8 +114,8 @@
 12. ~~Human-in-the-Loop & Feedback Loop~~ ✅ Done — `HitlGate`, `FeedbackCollector`, `EscalationPolicy`, `FeedbackLoopEngine`, `HitlConfig`, dashboard `/hitl` queue, graph wiring, tests.
 13. ~~Day 1: Real Embedding Engine~~ ✅ Done — extracted `RealEmbeddingEngine`/`PseudoEmbeddingEngine` into `aio/memory/embeddings.py` behind `ENABLE_REAL_EMBEDDINGS` flag with graceful fallback.
 14. ~~Day 2: Persistent Storage with pgvector~~ ✅ Done — `PostgresBackend` upgraded with `vector(384)` columns, HNSW index, `vector_search`, `hybrid_search`, and graceful JSONB fallback.
-15. Day 3: True Memory Lifecycle — LLM-based episodic consolidation, adaptive Ebbinghaus forgetting curve.
-16. Day 4: Integration & Tool Exposure — `store_memory` and `recall_memory` tools registered in ToolGate.
+15. ✅ Day 3 complete: True Memory Lifecycle — LLM-based episodic consolidation, adaptive Ebbinghaus forgetting curve.
+16. ✅ Day 4 complete: Integration & Tool Exposure — `store_memory` and `recall_memory` tools registered in ToolGate.
 
 ---
 
@@ -203,4 +203,4 @@ All flags are env-driven and checked at config initialization time.
 
 ---
 
-*Last updated: Post-PR #25 — Day 1 Memory Upgrade (Priority 10)*
+*Last updated: Post-PR #29 continuation — Memory Upgrade Day 4 completion (Priority 10)*
