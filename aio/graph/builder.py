@@ -35,6 +35,7 @@ node_memory_encode,
 node_memory_verify,
 node_memory_store,
 node_memory_consolidate,
+node_memory_forget,
 node_plan_generate,
 node_maci_select,
 node_hiplan,
@@ -208,7 +209,12 @@ def build_aio_graph(
             mcp_client = MCPClient(cfg.mcp, obs)
         except Exception as exc:
             obs.log(logging.WARNING, f"MCP client instantiation failed: {exc}")
-    toolgate = ToolGate(cfg.toolgate, obs, mcp_client=mcp_client)
+    toolgate = ToolGate(
+        cfg.toolgate,
+        obs,
+        mcp_client=mcp_client,
+        memory_bridge=mem,
+    )
     recovery = FailureRecovery(cfg.failure_recovery, obs)
 
     graph = StateGraph(AIOState)
@@ -227,6 +233,7 @@ def build_aio_graph(
     _add("memory_verify", lambda s: node_memory_verify(s, mem))
     _add("memory_store", lambda s: node_memory_store(s, mem))
     _add("memory_consolidate", lambda s: node_memory_consolidate(s, mem))
+    _add("memory_forget", lambda s: node_memory_forget(s, mem))
 
     # Layer 4
     _add("curiosity_intrinsic", lambda s: node_curiosity_intrinsic(s, curiosity))
@@ -332,7 +339,8 @@ def build_aio_graph(
     graph.add_edge("memory_encode", "memory_verify")
     graph.add_edge("memory_verify", "memory_store")
     graph.add_edge("memory_store", "memory_consolidate")
-    graph.add_edge("memory_consolidate", "curiosity_intrinsic")
+    graph.add_edge("memory_consolidate", "memory_forget")
+    graph.add_edge("memory_forget", "curiosity_intrinsic")
 
     # Curiosity pipeline
     graph.add_edge("curiosity_intrinsic", "curiosity_seek")

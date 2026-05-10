@@ -89,6 +89,7 @@ from aio import (
     node_memory_verify,
     node_memory_store,
     node_memory_consolidate,
+    node_memory_forget,
     node_plan_generate,
     node_maci_select,
     node_hiplan,

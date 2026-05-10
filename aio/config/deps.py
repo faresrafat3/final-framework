@@ -120,16 +120,15 @@ except Exception:  # pragma: no cover
 
 
 def _check_pgvector_sql(conn) -> bool:
-    """Runtime SQL probe for the pgvector PostgreSQL extension.
+    """Runtime SQL probe for pgvector extension availability.
 
-    In production pgvector is a PostgreSQL extension, not a Python package,
-    so ``PGVECTOR_AVAILABLE`` (which tries ``import pgvector``) may be
-    insufficient.  Use this helper with an open psycopg2 connection to
-    determine whether the extension is installed in the target database.
+    PostgreSQL installations typically expose the extension as ``vector``,
+    while some environments still reference ``pgvector``. This helper accepts
+    either extension name.
     """
     try:
         with conn.cursor() as cur:
-            cur.execute("SELECT 1 FROM pg_extension WHERE extname='pgvector'")
+            cur.execute("SELECT 1 FROM pg_extension WHERE extname IN ('vector', 'pgvector')")
             return cur.fetchone() is not None
     except Exception:  # pragma: no cover
         return False

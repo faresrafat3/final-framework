@@ -1,5 +1,35 @@
 # Changelog
 
+## [10.0.0-day4] — 2026-05-10
+
+### Added
+- **Memory Upgrade — Day 4 completion (Priority 10)**
+  - `ToolGate` long-term memory tool integration:
+    - `store_memory` tool delegates to `MemoryBridge.store_long_term(...)`
+    - `recall_memory` tool delegates to `MemoryBridge.recall(...)`
+  - Feature flag: `ENABLE_MEMORY_TOOLS` (default `true`) exposed via `ToolGateConfig.enable_memory_tools`
+  - New tests:
+    - `tests/unit/test_memory_tool_integration.py`
+    - `tests/unit/test_memory_hardening.py`
+    - `tests/unit/test_pgvector_persistence_hardening.py`
+
+### Changed
+- `PostgresBackend` persistence hardened:
+  - safer pgvector extension probing and activation (`vector` / `pgvector` compatibility)
+  - resilient load parsing for vector/meta payloads
+  - upsert-based sync strategy with stale-row cleanup (no full-table truncate cycle)
+  - safer vector literal handling for SQL queries and writes
+- `MemoryBridge` lifecycle hardening:
+  - stronger verify stage normalization/deduplication
+  - explicit `store()` sync behavior
+  - keyword index cleanup guarantees on dedupe/forget/consolidation
+  - public long-term APIs: `store_long_term(...)` and `recall(...)`
+  - retrieval now persists access-count updates via backend sync
+- Graph memory lifecycle wiring now includes explicit forget phase:
+  - `memory_consolidate -> memory_forget -> curiosity_intrinsic`
+
+---
+
 ## [10.0.0-day2] — 2026-05-08
 
 Merged via PR #26.
